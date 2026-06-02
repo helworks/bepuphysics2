@@ -200,7 +200,7 @@ namespace BepuPhysics.Constraints
         public abstract void Initialize(ref TypeBatch typeBatch, int initialCapacity, BufferPool pool);
         public abstract void Resize(ref TypeBatch typeBatch, int newCapacity, BufferPool pool);
 
-        public abstract void WarmStart<TIntegratorCallbacks, TBatchIntegrationMode, TAllowPoseIntegration>(ref TypeBatch typeBatch, ref Buffer<IndexSet> integrationFlags, Bodies bodies,
+        public abstract void WarmStart<TIntegratorCallbacks, TBatchIntegrationMode, TAllowPoseIntegration>(ref TypeBatch typeBatch, ref IndexSet[] integrationFlags, Bodies bodies,
             ref TIntegratorCallbacks poseIntegratorCallbacks,
             float dt, float inverseDt, int startBundle, int exclusiveEndBundle, int workerIndex)
             where TIntegratorCallbacks : struct, IPoseIntegratorCallbacks
@@ -1296,7 +1296,7 @@ namespace BepuPhysics.Constraints
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void GatherAndIntegrate<TIntegratorCallbacks, TBatchIntegrationMode, TAccessFilter, TShouldIntegratePoses>(
-            Bodies bodies, ref TIntegratorCallbacks integratorCallbacks, ref Buffer<IndexSet> integrationFlags, int bodyIndexInConstraint, float dt, int workerIndex, int bundleIndex,
+            Bodies bodies, ref TIntegratorCallbacks integratorCallbacks, ref IndexSet[] integrationFlags, int bodyIndexInConstraint, float dt, int workerIndex, int bundleIndex,
             ref Vector<int> encodedBodyIndices, out Vector3Wide position, out QuaternionWide orientation, out BodyVelocityWide velocity, out BodyInertiaWide inertia)
             where TIntegratorCallbacks : struct, IPoseIntegratorCallbacks
             where TBatchIntegrationMode : unmanaged, IBatchIntegrationMode

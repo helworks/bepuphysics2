@@ -22,6 +22,12 @@ namespace BepuUtilities
             public AutoResetEvent Signal;
         }
 
+        struct WorkerLoopContext
+        {
+            public AutoResetEvent Signal;
+            public int WorkerIndex;
+        }
+
         Worker[] workers;
         AutoResetEvent finished;
 
@@ -47,7 +53,7 @@ namespace BepuUtilities
             {
                 workers[i] = new Worker { Thread = new Thread(WorkerLoop), Signal = new AutoResetEvent(false) };
                 workers[i].Thread.IsBackground = true;
-                workers[i].Thread.Start((workers[i].Signal, i + 1));
+                workers[i].Thread.Start(new WorkerLoopContext { Signal = workers[i].Signal, WorkerIndex = i + 1 });
             }
             finished = new AutoResetEvent(false);
             WorkerPools = new WorkerBufferPools(threadCount, threadPoolBlockAllocationSize);
@@ -96,7 +102,9 @@ namespace BepuUtilities
 
         void WorkerLoop(object untypedSignal)
         {
-            var (signal, workerIndex) = ((AutoResetEvent, int))untypedSignal;
+            var context = (WorkerLoopContext)untypedSignal;
+            var signal = context.Signal;
+            var workerIndex = context.WorkerIndex;
             while (true)
             {
                 signal.WaitOne();

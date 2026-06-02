@@ -181,6 +181,169 @@ partial struct Tree
             return;
         }
 
+        if (typeof(TThreading) == typeof(SingleThreaded))
+        {
+            if (Vector256.IsHardwareAccelerated || Vector128.IsHardwareAccelerated)
+            {
+                int microsweepPaddedKeyCount = Vector256.IsHardwareAccelerated ? ((subtreeCount + 7) / 8) * 8 : ((subtreeCount + 3) / 4) * 4;
+                var microsweepSortKeys = new float[microsweepPaddedKeyCount];
+                var microsweepTargetIndices = new int[microsweepPaddedKeyCount];
+                var microsweepSubtreeCache = new NodeChild[subtreeCount];
+                fixed (float* sortKeysPointer = microsweepSortKeys)
+                fixed (int* targetIndicesPointer = microsweepTargetIndices)
+                fixed (NodeChild* subtreeCachePointer = microsweepSubtreeCache)
+                {
+                    var keys = new Buffer<float>(sortKeysPointer, microsweepPaddedKeyCount);
+                    var targetIndices = new Buffer<int>(targetIndicesPointer, microsweepPaddedKeyCount);
+                    var subtreeCache = new Buffer<NodeChild>(subtreeCachePointer, subtreeCount);
+
+                    if (centroidSpan.X > centroidSpan.Y && centroidSpan.X > centroidSpan.Z)
+                    {
+                        for (int i = 0; i < subtreeCount; ++i)
+                        {
+                            ref var bounds = ref subtrees[i];
+                            keys[i] = bounds.Min.X + bounds.Max.X;
+                        }
+                    }
+                    else if (centroidSpan.Y > centroidSpan.Z)
+                    {
+                        for (int i = 0; i < subtreeCount; ++i)
+                        {
+                            ref var bounds = ref subtrees[i];
+                            keys[i] = bounds.Min.Y + bounds.Max.Y;
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < subtreeCount; ++i)
+                        {
+                            ref var bounds = ref subtrees[i];
+                            keys[i] = bounds.Min.Z + bounds.Max.Z;
+                        }
+                    }
+
+                    for (int i = subtreeCount; i < microsweepPaddedKeyCount; ++i)
+                    {
+                        keys[i] = float.MaxValue;
+                    }
+
+                    VectorizedSorts.VectorCountingSort(keys, targetIndices, subtreeCount);
+                    subtrees.CopyTo(0, subtreeCache, 0, subtreeCount);
+                    for (int i = 0; i < subtreeCount; ++i)
+                    {
+                        var targetIndex = targetIndices[i];
+                        subtrees[targetIndex] = subtreeCache[i];
+                    }
+                }
+            }
+            else
+            {
+                if (centroidSpan.X > centroidSpan.Y && centroidSpan.X > centroidSpan.Z)
+                {
+                    var comparer = new BoundsComparerX();
+                    QuickSort.Sort(ref subtrees[0], 0, subtreeCount - 1, ref comparer);
+                }
+                else if (centroidSpan.Y > centroidSpan.Z)
+                {
+                    var comparer = new BoundsComparerY();
+                    QuickSort.Sort(ref subtrees[0], 0, subtreeCount - 1, ref comparer);
+                }
+                else
+                {
+                    var comparer = new BoundsComparerZ();
+                    QuickSort.Sort(ref subtrees[0], 0, subtreeCount - 1, ref comparer);
+                }
+            }
+
+            var microsweepBoundingBoxes = subtrees.As<BoundingBox4>();
+            var microsweepBoundingBoxesScan = new BoundingBox4[subtreeCount];
+            microsweepBoundingBoxesScan[0] = microsweepBoundingBoxes[0];
+            int microsweepTotalLeafCount = subtrees[0].LeafCount;
+            for (int i = 1; i < subtreeCount; ++i)
+            {
+                var previousIndex = i - 1;
+                ref var previousScanBounds = ref microsweepBoundingBoxesScan[previousIndex];
+                ref var scanBounds = ref microsweepBoundingBoxesScan[i];
+                ref var bounds = ref microsweepBoundingBoxes[i];
+                scanBounds.Min = Vector4.Min(bounds.Min, previousScanBounds.Min);
+                scanBounds.Max = Vector4.Max(bounds.Max, previousScanBounds.Max);
+                microsweepTotalLeafCount += subtrees[i].LeafCount;
+            }
+
+            float microsweepBestSah = float.MaxValue;
+            int microsweepBestSplit = 1;
+            var microsweepLastSubtreeIndex = subtreeCount - 1;
+            BoundingBox4 microsweepAccumulatedBoundingBoxB = microsweepBoundingBoxes[microsweepLastSubtreeIndex];
+            Unsafe.SkipInit(out BoundingBox4 microsweepBestBoundsB);
+            int microsweepAccumulatedLeafCountB = subtrees[microsweepLastSubtreeIndex].LeafCount;
+            int microsweepBestLeafCountB = 0;
+            for (int splitIndexCandidate = microsweepLastSubtreeIndex; splitIndexCandidate >= 1; --splitIndexCandidate)
+            {
+                var previousIndex = splitIndexCandidate - 1;
+                var microsweepSahCandidate =
+                    ComputeBoundsMetric(microsweepBoundingBoxesScan[previousIndex]) * (microsweepTotalLeafCount - microsweepAccumulatedLeafCountB) +
+                    ComputeBoundsMetric(microsweepAccumulatedBoundingBoxB) * microsweepAccumulatedLeafCountB;
+                if (microsweepSahCandidate < microsweepBestSah)
+                {
+                    microsweepBestSah = microsweepSahCandidate;
+                    microsweepBestSplit = splitIndexCandidate;
+                    microsweepBestBoundsB = microsweepAccumulatedBoundingBoxB;
+                    microsweepBestLeafCountB = microsweepAccumulatedLeafCountB;
+                }
+                ref var bounds = ref microsweepBoundingBoxes[previousIndex];
+                microsweepAccumulatedBoundingBoxB.Min = Vector4.Min(bounds.Min, microsweepAccumulatedBoundingBoxB.Min);
+                microsweepAccumulatedBoundingBoxB.Max = Vector4.Max(bounds.Max, microsweepAccumulatedBoundingBoxB.Max);
+                microsweepAccumulatedLeafCountB += subtrees[previousIndex].LeafCount;
+            }
+
+            if (microsweepBestLeafCountB == 0 || microsweepBestLeafCountB == microsweepTotalLeafCount || microsweepBestSah == float.MaxValue || float.IsNaN(microsweepBestSah) || float.IsInfinity(microsweepBestSah))
+            {
+                HandleMicrosweepDegeneracy(ref leaves, subtrees, nodes, metanodes, nodeIndex, parentNodeIndex, childIndexInParent, centroidMin, centroidMax, context, workerIndex);
+                return;
+            }
+
+            var microsweepBestBoundsA = microsweepBoundingBoxesScan[microsweepBestSplit - 1];
+            var microsweepSubtreeCountA = microsweepBestSplit;
+            var microsweepSubtreeCountB = subtreeCount - microsweepBestSplit;
+            var microsweepBestLeafCountA = microsweepTotalLeafCount - microsweepBestLeafCountB;
+
+            Debug.Assert(parentNodeIndex < 0 || Unsafe.Add(ref context->Nodes[parentNodeIndex].A, childIndexInParent).LeafCount == microsweepBestLeafCountA + microsweepBestLeafCountB);
+            BuildNode(microsweepBestBoundsA, microsweepBestBoundsB, microsweepBestLeafCountA, microsweepBestLeafCountB, subtrees, nodes, metanodes, nodeIndex, parentNodeIndex, childIndexInParent, microsweepSubtreeCountA, microsweepSubtreeCountB, ref leaves, out var microsweepAIndex, out var microsweepBIndex);
+            if (microsweepSubtreeCountA > 1)
+            {
+                var aBounds = microsweepBoundingBoxes.Slice(microsweepSubtreeCountA);
+                var initialCentroid = aBounds.Memory->Min + aBounds.Memory->Max;
+                BoundingBox4 centroidBoundsA;
+                centroidBoundsA.Min = initialCentroid;
+                centroidBoundsA.Max = initialCentroid;
+                for (int i = 1; i < microsweepSubtreeCountA; ++i)
+                {
+                    ref var bounds = ref aBounds[i];
+                    var centroid = bounds.Min + bounds.Max;
+                    centroidBoundsA.Min = Vector4.Min(centroidBoundsA.Min, centroid);
+                    centroidBoundsA.Max = Vector4.Max(centroidBoundsA.Max, centroid);
+                }
+                MicroSweepForBinnedBuilder(centroidBoundsA.Min, centroidBoundsA.Max, ref leaves, subtrees.Slice(microsweepSubtreeCountA), nodes.Slice(1, microsweepSubtreeCountA - 1), metanodes.Allocated ? metanodes.Slice(1, microsweepSubtreeCountA - 1) : metanodes, microsweepAIndex, nodeIndex, 0, context, workerIndex);
+            }
+            if (microsweepSubtreeCountB > 1)
+            {
+                var bBounds = microsweepBoundingBoxes.Slice(microsweepSubtreeCountA, microsweepSubtreeCountB);
+                var initialCentroid = bBounds.Memory->Min + bBounds.Memory->Max;
+                BoundingBox4 centroidBoundsB;
+                centroidBoundsB.Min = initialCentroid;
+                centroidBoundsB.Max = initialCentroid;
+                for (int i = 1; i < microsweepSubtreeCountB; ++i)
+                {
+                    ref var bounds = ref bBounds[i];
+                    var centroid = bounds.Min + bounds.Max;
+                    centroidBoundsB.Min = Vector4.Min(centroidBoundsB.Min, centroid);
+                    centroidBoundsB.Max = Vector4.Max(centroidBoundsB.Max, centroid);
+                }
+                MicroSweepForBinnedBuilder(centroidBoundsB.Min, centroidBoundsB.Max, ref leaves, subtrees.Slice(microsweepSubtreeCountA, microsweepSubtreeCountB), nodes.Slice(microsweepSubtreeCountA, microsweepSubtreeCountB - 1), metanodes.Allocated ? metanodes.Slice(microsweepSubtreeCountA, microsweepSubtreeCountB - 1) : metanodes, microsweepBIndex, nodeIndex, 1, context, workerIndex);
+            }
+            return;
+        }
+
         context->Threading.GetBins(workerIndex, out var binBoundingBoxes, out var binCentroidBoundingBoxes, out var binBoundingBoxesScan, out var binCentroidBoundingBoxesScan, out var binLeafCounts);
 
         if (Vector256.IsHardwareAccelerated || Vector128.IsHardwareAccelerated)
@@ -1102,7 +1265,14 @@ partial struct Tree
 
         var offsetToBinIndex = new Vector4(binCount) / centroidSpan;
         //Avoid letting NaNs into the offsetToBinIndex scale.
-        offsetToBinIndex = Vector128.ConditionalSelect(axisIsDegenerate, Vector128<float>.Zero, offsetToBinIndex.AsVector128()).AsVector4();
+        if ((Vector128.ExtractMostSignificantBits(axisIsDegenerate) & 1) != 0)
+            offsetToBinIndex.X = 0;
+        if ((Vector128.ExtractMostSignificantBits(axisIsDegenerate) & 2) != 0)
+            offsetToBinIndex.Y = 0;
+        if ((Vector128.ExtractMostSignificantBits(axisIsDegenerate) & 4) != 0)
+            offsetToBinIndex.Z = 0;
+        if ((Vector128.ExtractMostSignificantBits(axisIsDegenerate) & 8) != 0)
+            offsetToBinIndex.W = 0;
 
         var maximumBinIndex = new Vector4(binCount - 1);
         context->Threading.GetBins(workerIndex, out var binBoundingBoxes, out var binCentroidBoundingBoxes, out var binBoundingBoxesScan, out var binCentroidBoundingBoxesScan, out var binLeafCounts);

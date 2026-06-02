@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Reduced real time physics simulation library slice for Helengine box and sphere integration.</Description>
+    <Configurations>Debug;Release;ReleaseNoProfiling</Configurations>
+    <PackageTags>physics;3d;rigid body;real time;simulation</PackageTags>
+    <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
+    <NoWarn>1573;1591;CA2014</NoWarn>
+  </PropertyGroup>
+
+  <Import Project="..\CommonSettings.props" />
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <Optimize>false</Optimize>
+    <DefineConstants>TRACE;DEBUG;CHECKMATH;PROFILE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE;RELEASE;PROFILE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='ReleaseNoProfiling'">
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE;RELEASE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BepuUtilities\BepuUtilities.Minimal.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="DefaultTypes.cs" />
+    <Compile Remove="Minimal\DefaultTypes.Minimal.cs" />
+    <Compile Remove="Minimal\IShape.Minimal.cs" />
+    <Compile Remove="Minimal\Shapes.Minimal.cs" />
+    <Compile Remove="Minimal\RayData.Minimal.cs" />
+    <Compile Remove="Minimal\NonconvexReduction.Minimal.cs" />
+    <Compile Remove="Minimal\MeshReduction.Minimal.cs" />
+    <Compile Remove="Minimal\CompoundMeshReduction.Minimal.cs" />
+    <Compile Remove="Minimal\TreeTraversalConstants.Minimal.cs" />
+    <Compile Remove="Collidables\IShape.cs" />
+    <Compile Remove="Collidables\Shapes.cs" />
+    <Compile Remove="Collidables\BigCompound.cs" />
+    <Compile Remove="Collidables\Capsule.cs" />
+    <Compile Remove="Collidables\Compound.cs" />
+    <Compile Remove="Collidables\CompoundBuilder.cs" />
+    <Compile Remove="Collidables\ConvexHull.cs" />
+    <Compile Remove="Collidables\ConvexHullHelper.cs" />
+    <Compile Remove="Collidables\Cylinder.cs" />
+    <Compile Remove="Collidables\Mesh.cs" />
+    <Compile Remove="Minimal\Compound.Minimal.cs" />
+    <Compile Remove="CollisionDetection\CompoundMeshReduction.cs" />
+    <Compile Remove="CollisionDetection\MeshReduction.cs" />
+    <Compile Remove="CollisionDetection\NonconvexReduction.cs" />
+    <Compile Remove="CollisionDetection\BroadPhase_Queries.cs" />
+    <Compile Remove="CollisionDetection\RayBatchers.cs" />
+    <Compile Remove="Simulation_Queries.cs" />
+    <Compile Remove="CollisionDetection\WideRayTester.cs" />
+    <Compile Remove="CollisionDetection\SweepTasks\**\*.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*Capsule*.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*Compound*.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*ConvexHull*.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*Cylinder*.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*Mesh*.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*Triangle*.cs" />
+    <Compile Remove="Constraints\AreaConstraint.cs" />
+    <Compile Remove="Constraints\Angular*.cs" />
+    <Compile Remove="Constraints\BallSocket*.cs" />
+    <Compile Remove="Constraints\CenterDistance*.cs" />
+    <Compile Remove="Constraints\Distance*.cs" />
+    <Compile Remove="Constraints\Hinge.cs" />
+    <Compile Remove="Constraints\LinearAxis*.cs" />
+    <Compile Remove="Constraints\OneBodyAngular*.cs" />
+    <Compile Remove="Constraints\OneBodyLinear*.cs" />
+    <Compile Remove="Constraints\PointOnLineServo.cs" />
+    <Compile Remove="Constraints\SwivelHinge.cs" />
+    <Compile Remove="Constraints\Twist*.cs" />
+    <Compile Remove="Constraints\VolumeConstraint.cs" />
+    <Compile Remove="Constraints\Weld.cs" />
+    <Compile Remove="Constraints\Contact\ContactNonconvexTypes.cs" />
+    <Compile Remove="Trees\RayBatcher.cs" />
+    <Compile Remove="Trees\Tree_Diagnostics.cs" />
+    <Compile Remove="Trees\Tree_RayCast.cs" />
+    <Compile Remove="Trees\Tree_Sweep.cs" />
+    <Compile Remove="Trees\Tree_SweepBuilder.cs" />
+    <Compile Include="Minimal\DefaultTypes.Minimal.cs" Link="DefaultTypes.cs" />
+    <Compile Include="Minimal\IShape.Minimal.cs" Link="Collidables\IShape.cs" />
+    <Compile Include="Minimal\Shapes.Minimal.cs" Link="Collidables\Shapes.cs" />
+    <Compile Include="Minimal\Compound.Minimal.cs" Link="Collidables\Compound.cs" />
+    <Compile Include="Minimal\RayData.Minimal.cs" Link="Trees\RayData.cs" />
+    <Compile Include="Minimal\TreeTraversalConstants.Minimal.cs" Link="Trees\Tree_TraversalConstants.cs" />
+    <Compile Include="Minimal\NonconvexReduction.Minimal.cs" Link="CollisionDetection\NonconvexReduction.cs" />
+    <Compile Include="Minimal\MeshReduction.Minimal.cs" Link="CollisionDetection\MeshReduction.cs" />
+    <Compile Include="Minimal\CompoundMeshReduction.Minimal.cs" Link="CollisionDetection\CompoundMeshReduction.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="CollisionDetection\DepthRefiner.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>DepthRefiner.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Constraints\Contact\ContactConvexTypes.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>ContactConvexTypes.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="CollisionDetection\DepthRefiner.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>DepthRefiner.cs</LastGenOutput>
+    </None>
+    <None Update="Constraints\Contact\ContactConvexTypes.tt">
+      <LastGenOutput>ContactConvexTypes.cs</LastGenOutput>
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+  </ItemGroup>
+</Project>

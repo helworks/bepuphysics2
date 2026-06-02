@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>BepuUtilities</AssemblyName>
+    <RootNamespace>BepuUtilities</RootNamespace>
+    <Description>Supporting utilities library for the reduced BEPU box and sphere integration slice.</Description>
+    <Configurations>Debug;Release</Configurations>
+    <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
+    <NoWarn>1573;1591</NoWarn>
+  </PropertyGroup>
+
+  <Import Project="..\CommonSettings.props" />
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <Optimize>false</Optimize>
+    <DefineConstants>TRACE;DEBUG;CHECKMATH</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE;RELEASE</DefineConstants>
+  </PropertyGroup>
+</Project>

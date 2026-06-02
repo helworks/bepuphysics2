@@ -85,7 +85,7 @@ namespace BepuPhysics.Constraints
             int constraintStart, int localConstraintStart, int constraintCount,
             ref int firstSortKey, ref int firstSourceIndex, ref Buffer<byte> bodyReferencesCache)
         {
-            GenerateSortKeysAndCopyReferences<ThreeBodySortKeyGenerator>(
+            base.GenerateSortKeysAndCopyReferences<ThreeBodySortKeyGenerator>(
                 ref typeBatch,
                 bundleStart, localBundleStart, bundleCount,
                 constraintStart, localConstraintStart, constraintCount,
@@ -94,11 +94,11 @@ namespace BepuPhysics.Constraints
 
         internal sealed override void VerifySortRegion(ref TypeBatch typeBatch, int bundleStartIndex, int constraintCount, ref Buffer<int> sortedKeys, ref Buffer<int> sortedSourceIndices)
         {
-            VerifySortRegion<ThreeBodySortKeyGenerator>(ref typeBatch, bundleStartIndex, constraintCount, ref sortedKeys, ref sortedSourceIndices);
+            base.VerifySortRegion<ThreeBodySortKeyGenerator>(ref typeBatch, bundleStartIndex, constraintCount, ref sortedKeys, ref sortedSourceIndices);
         }
        
         public override void WarmStart<TIntegratorCallbacks, TBatchIntegrationMode, TAllowPoseIntegration>(
-            ref TypeBatch typeBatch, ref Buffer<IndexSet> integrationFlags, Bodies bodies, ref TIntegratorCallbacks integratorCallbacks,
+            ref TypeBatch typeBatch, ref IndexSet[] integrationFlags, Bodies bodies, ref TIntegratorCallbacks integratorCallbacks,
             float dt, float inverseDt, int startBundle, int exclusiveEndBundle, int workerIndex)
         {
             var prestepBundles = typeBatch.PrestepData.As<TPrestepData>();

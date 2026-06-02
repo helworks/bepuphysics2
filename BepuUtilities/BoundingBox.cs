@@ -219,7 +219,7 @@ namespace BepuUtilities
                 }
                 else
                 {
-                    var mask = Vector128.Create(-1, -1, -1, 0).As<int, float>();
+                    var mask = Vector128.AsSingle(Vector128.Create(-1, -1, -1, 0));
                     resultMin = Vector128.ConditionalSelect(mask, min, resultMin);
                     resultMax = Vector128.ConditionalSelect(mask, max, resultMax);
                 }

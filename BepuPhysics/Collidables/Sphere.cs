@@ -155,8 +155,8 @@ namespace BepuPhysics.Collidables
             //It's technically true that spheres (and only spheres) do not require orientation to be loaded and could be special cased to reduce memory traffic, but just heck no.
             //It's very likely that the orientation loaded for the sphere was already in L1 anyway due to the online batching performed during the pose integrator.
             var negatedRadius = -Radius;
-            max = new Vector3Wide(ref Radius);
-            min = new Vector3Wide(ref negatedRadius);
+            max = new Vector3Wide(Radius);
+            min = new Vector3Wide(negatedRadius);
         }
 
 

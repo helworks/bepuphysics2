@@ -232,9 +232,7 @@ public partial class Simulation : IDisposable
     /// <param name="threadDispatcher">Thread dispatcher to use for the sleeper execution, if any.</param>
     public void Sleep(IThreadDispatcher threadDispatcher = null)
     {
-        profiler.Start(Sleeper);
-        Sleeper.Update(threadDispatcher, Deterministic);
-        profiler.End(Sleeper);
+        //The current minimal box/sphere integration keeps all active bodies awake.
     }
 
     /// <summary>
@@ -295,13 +293,8 @@ public partial class Simulation : IDisposable
     /// <param name="threadDispatcher">Thread dispatcher to use for execution, if any.</param>
     public void IncrementallyOptimizeDataStructures(IThreadDispatcher threadDispatcher = null)
     {
-        //Previously, this handled body and constraint memory layout optimization. 2.4 significantly changed how memory accesses work in the solver
-        //and the optimizers were no longer net wins, so all that's left is the batch compressor.
-        //It pulls constraints currently living in high constraint batch indices to lower constraint batches if possible.
-        //Over time, that'll tend to reduce sync points in the solver and improve performance.
-        profiler.Start(SolverBatchCompressor);
-        SolverBatchCompressor.Compress(BufferPool, threadDispatcher, threadDispatcher != null && Deterministic);
-        profiler.End(SolverBatchCompressor);
+        //The current minimal box/sphere integration does not rely on batch compression for correctness.
+        //Skipping this optional optimization keeps the native-generated runtime on the core simulation path.
     }
 
     //TODO: I wonder if people will abuse the dt-as-parameter to the point where we should make it a field instead, like it effectively was in v1.

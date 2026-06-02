@@ -545,7 +545,7 @@ public partial struct Tree
         var subtreeRefinementTargets = new QuickList<int>(subtreeRefinementCapacity, pool);
         FindSubtreeRefinementTargets(subtreeRefinementSize, subtreeRefinementCount, ref subtreeRefinementStartIndex, ref subtreeRefinementTargets);
         //Fill the trailing slots in the list with -1 to avoid matches.
-        ((Span<int>)subtreeRefinementTargets.Span)[subtreeRefinementTargets.Count..].Fill(-1);
+        ((Span<int>)subtreeRefinementTargets.Span).Slice(subtreeRefinementTargets.Count).Fill(-1);
 
         var refinementNodesAllocation = new Buffer<Node>(int.Max(rootRefinementSize, subtreeRefinementSize), pool);
         if (rootRefinementSize > 0) //Skip root refinement if it's zero or negative size.
@@ -715,7 +715,7 @@ public partial struct Tree
         subtreeRefinementStartIndex = preStartIndex;
         FindSubtreeRefinementTargets(subtreeRefinementSize, subtreeRefinementCount, ref subtreeRefinementStartIndex, ref subtreeRefinementTargets);
         //Fill the trailing slots in the list with -1 to avoid matches.
-        ((Span<int>)subtreeRefinementTargets.Span)[subtreeRefinementTargets.Count..].Fill(-1);
+        ((Span<int>)subtreeRefinementTargets.Span).Slice(subtreeRefinementTargets.Count).Fill(-1);
 
         //Zero or negative root refine sizes means skip it.
         var rootRefinementCount = rootRefinementSize > 0 ? 1 : 0;
@@ -744,7 +744,7 @@ public partial struct Tree
             tasks[i] = new Task(&ExecuteSubtreeRefinementTask, &context, subtreeRefinementTargets[i]);
         }
         if (rootRefinementSize > 0)
-            tasks[^1] = new Task(&ExecuteRootRefinementTask, &context);
+            tasks[tasks.Length - 1] = new Task(&ExecuteRootRefinementTask, &context);
         if (internallyDispatch)
         {
             //There isn't an active dispatch, so we need to do it.

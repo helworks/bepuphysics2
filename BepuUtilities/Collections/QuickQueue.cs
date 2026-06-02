@@ -167,7 +167,7 @@ namespace BepuUtilities.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Resize(int newSize, IUnmanagedMemoryPool pool)
         {
-            var targetCapacity = pool.GetCapacityForCount<T>(newSize);
+            var targetCapacity = BufferPool.GetCapacityForCount<T>(newSize);
             if (targetCapacity != Span.Length)
             {
                 var oldQueue = this;
@@ -207,7 +207,7 @@ namespace BepuUtilities.Collections
         public void Compact(IUnmanagedMemoryPool pool)
         {
             Validate();
-            var targetCapacity = pool.GetCapacityForCount<T>(Count);
+            var targetCapacity = BufferPool.GetCapacityForCount<T>(Count);
             if (targetCapacity < Span.Length)
                 Resize(targetCapacity, pool);
         }

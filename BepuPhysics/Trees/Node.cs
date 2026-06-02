@@ -14,6 +14,11 @@ namespace BepuPhysics.Trees
         public Vector3 Max;
         [FieldOffset(28)]
         public int LeafCount;
+
+        public override string ToString()
+        {
+            return "Index: " + Index + ", LeafCount: " + LeafCount;
+        }
     }
 
     //Note that the format of this node implies that we don't explicitly test against the root bounding box during normal execution.

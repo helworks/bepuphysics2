@@ -253,7 +253,7 @@ namespace BepuUtilities.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Resize(int newSize, IUnmanagedMemoryPool pool)
         {
-            var targetKeyCapacity = pool.GetCapacityForCount<TKey>(newSize);
+            var targetKeyCapacity = BufferPool.GetCapacityForCount<TKey>(newSize);
             if (targetKeyCapacity != Keys.Length)
             {
                 pool.TakeAtLeast<TKey>(newSize, out var newKeySpan);
@@ -299,7 +299,7 @@ namespace BepuUtilities.Collections
         public void Compact(IUnmanagedMemoryPool pool)
         {
             Validate();
-            var targetKeyCapacity = pool.GetCapacityForCount<TKey>(Count);
+            var targetKeyCapacity = BufferPool.GetCapacityForCount<TKey>(Count);
             if (targetKeyCapacity < Keys.Length)
                 Resize(Count, pool);
         }
