@@ -216,8 +216,10 @@ namespace BepuPhysics.Constraints
                 //Prefetch(SolvePrefetchDistance, ref typeBatch, ref bodyReferencesBundles, ref motionStates, i, exclusiveEndBundle);
                 bodies.GatherState<TSolveAccessFilterA>(references.IndexA, true, out var positionA, out var orientationA, out var wsvA, out var inertiaA);
                 bodies.GatherState<TSolveAccessFilterB>(references.IndexB, true, out var positionB, out var orientationB, out var wsvB, out var inertiaB);
+                BepuNativeConversionDiagnostics.RecordTwoBodySolveProbe(typeof(TConstraintFunctions).Name, "two_body_solve_before", bodies, i, references.IndexA, references.IndexB, positionA, orientationA, positionB, orientationB, wsvA, wsvB);
 
                 TConstraintFunctions.Solve(positionA, orientationA, inertiaA, positionB, orientationB, inertiaB, dt, inverseDt, ref prestep, ref accumulatedImpulses, ref wsvA, ref wsvB);
+                BepuNativeConversionDiagnostics.RecordTwoBodySolveProbe(typeof(TConstraintFunctions).Name, "two_body_solve_after", bodies, i, references.IndexA, references.IndexB, positionA, orientationA, positionB, orientationB, wsvA, wsvB);
 
                 bodies.ScatterVelocities<TSolveAccessFilterA>(ref wsvA, ref references.IndexA);
                 bodies.ScatterVelocities<TSolveAccessFilterB>(ref wsvB, ref references.IndexB);

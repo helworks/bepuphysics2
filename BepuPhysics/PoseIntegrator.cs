@@ -473,6 +473,7 @@ namespace BepuPhysics
                 var existingMask = BundleIndexing.CreateMaskForCountInBundle(countInBundle);
                 var trailingMask = Vector.OnesComplement(existingMask);
                 var bodyIndicesVector = Vector.BitwiseOr(trailingMask, new Vector<int>(bodyIndicesSpan));
+                BepuNativeConversionDiagnostics.RecordKinematicPrepass(false, workerIndex, bodyCount, bundleStartIndex, bundleEndIndex, bundleIndex, bundleBaseIndex, countInBundle, bodyHandles, bodyIndicesVector);
 
                 //Slightly unfortunate sacrifice to API simplicity: 
                 //We're doing a full gather so we can use the vectorized IntegrateVelocity callback even though the amount of work we're doing is absolutely trivial.
@@ -516,6 +517,7 @@ namespace BepuPhysics
                 var trailingMask = Vector.OnesComplement(existingMask);
                 var bodyIndicesVector = new Vector<int>(bodyIndicesSpan);
                 bodyIndicesVector = Vector.BitwiseOr(trailingMask, bodyIndicesVector);
+                BepuNativeConversionDiagnostics.RecordKinematicPrepass(true, workerIndex, bodyCount, bundleStartIndex, bundleEndIndex, bundleIndex, bundleBaseIndex, countInBundle, bodyHandles, bodyIndicesVector);
                 bodies.GatherState<AccessNoInertia>(bodyIndicesVector, false, out var position, out var orientation, out var velocity, out _);
                 //Note that we integrate pose, THEN velocity. This is executing in the context of the second (or beyond) substep, which are effectively completing the previous substep's frame.
                 //In other words, the pose integration completes the last substep, and then velocity integration prepares for the current substep.
@@ -617,6 +619,7 @@ namespace BepuPhysics
                 //We don't want to scatter velocities into any slots that don't want velocity writes. By setting all the bits in such lanes, scatter will skip them.
                 //This will also keep the body indices passed into callbacks.IntegrateVelocity consistent with those provided during PredictBoundingBoxes and the solver (-1 for ignored slots).
                 var velocityMaskedBodyIndices = Vector.BitwiseOr(bodyIndices, Vector.OnesComplement(unconstrainedVelocityIntegrationMask));
+                BepuNativeConversionDiagnostics.RecordPostSubstepSelection(bodyIndices, unconstrainedMask, unconstrainedVelocityIntegrationMask, velocityMaskedBodyIndices, anyBodyInBundleIsUnconstrained, anyBodyInBundleNeedsVelocityIntegration);
 
                 if (anyBodyInBundleIsUnconstrained)
                 {

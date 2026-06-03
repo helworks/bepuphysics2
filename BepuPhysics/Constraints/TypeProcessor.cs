@@ -1311,14 +1311,18 @@ namespace BepuPhysics.Constraints
                     //Avoid slots that are empty (-1) or slots that are kinematic. Both can be tested by checking the unsigned magnitude against the flag lower limit.
                     var integrationMask = Vector.AsVectorInt32(Vector.LessThan(Vector.AsVectorUInt32(encodedBodyIndices), new Vector<uint>(Bodies.DynamicLimit)));
                     bodies.GatherState<AccessAll>(encodedBodyIndices, false, out position, out orientation, out velocity, out var localInertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_before", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     var decodedBodyIndices = DecodeBodyIndices(encodedBodyIndices, integrationMask);
                     IntegratePoseAndVelocity(ref integratorCallbacks, ref decodedBodyIndices, localInertia, dt, integrationMask, ref position, ref orientation, ref velocity, workerIndex, out inertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     bodies.ScatterPose(ref position, ref orientation, encodedBodyIndices, integrationMask);
                     bodies.ScatterInertia(ref inertia, encodedBodyIndices, integrationMask);
                 }
                 else if (typeof(TBatchIntegrationMode) == typeof(BatchShouldNeverIntegrate))
                 {
                     bodies.GatherState<TAccessFilter>(encodedBodyIndices, true, out position, out orientation, out velocity, out inertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_before", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                 }
                 else
                 {
@@ -1331,6 +1335,7 @@ namespace BepuPhysics.Constraints
                     //In practice, since the access filters are only reducing instruction counts and not memory bandwidth,
                     //the slightly increased unnecessary gathering is no worse than the more complex scatter condition in performance, and remains simpler.
                     bodies.GatherState<AccessAll>(encodedBodyIndices, bundleIntegrationMode == BundleIntegrationMode.None, out position, out orientation, out velocity, out var gatheredInertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_before", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     if (bundleIntegrationMode != BundleIntegrationMode.None)
                     {
                         //Note that if we take this codepath, the integration routine will reconstruct the world inertias from local inertia given the current pose.
@@ -1338,12 +1343,14 @@ namespace BepuPhysics.Constraints
                         //Given that we're running the instructions in a bundle to build it, there's no reason to go out of our way to gather the world inertia.
                         var decodedBodyIndices = DecodeBodyIndices(encodedBodyIndices, integrationMask);
                         IntegratePoseAndVelocity(ref integratorCallbacks, ref decodedBodyIndices, gatheredInertia, dt, integrationMask, ref position, ref orientation, ref velocity, workerIndex, out inertia);
+                        BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                         bodies.ScatterPose(ref position, ref orientation, encodedBodyIndices, integrationMask);
                         bodies.ScatterInertia(ref inertia, encodedBodyIndices, integrationMask);
                     }
                     else
                     {
                         inertia = gatheredInertia;
+                        BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     }
                 }
             }
@@ -1362,29 +1369,36 @@ namespace BepuPhysics.Constraints
                     //Avoid slots that are empty (-1) or slots that are kinematic. Both can be tested by checking the unsigned magnitude against the flag lower limit.
                     var integrationMask = Vector.AsVectorInt32(Vector.LessThan(Vector.AsVectorUInt32(encodedBodyIndices), new Vector<uint>(Bodies.DynamicLimit)));
                     bodies.GatherState<AccessAll>(encodedBodyIndices, false, out position, out orientation, out velocity, out var localInertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_before", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     var decodedBodyIndices = DecodeBodyIndices(encodedBodyIndices, integrationMask);
                     IntegrateVelocity<TIntegratorCallbacks, TBatchIntegrationMode>(ref integratorCallbacks, ref decodedBodyIndices, localInertia, dt, integrationMask, position, orientation, ref velocity, workerIndex, out inertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     bodies.ScatterInertia(ref inertia, encodedBodyIndices, integrationMask);
 
                 }
                 else if (typeof(TBatchIntegrationMode) == typeof(BatchShouldNeverIntegrate))
                 {
                     bodies.GatherState<TAccessFilter>(encodedBodyIndices, true, out position, out orientation, out velocity, out inertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_before", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                 }
                 else
                 {
                     Debug.Assert(typeof(TBatchIntegrationMode) == typeof(BatchShouldConditionallyIntegrate));
                     var bundleIntegrationMode = BundleShouldIntegrate(bundleIndex, integrationFlags[bodyIndexInConstraint], out var integrationMask);
                     bodies.GatherState<AccessAll>(encodedBodyIndices, bundleIntegrationMode == BundleIntegrationMode.None, out position, out orientation, out velocity, out var gatheredInertia);
+                    BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_before", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     if (bundleIntegrationMode != BundleIntegrationMode.None)
                     {
                         var decodedBodyIndices = DecodeBodyIndices(encodedBodyIndices, integrationMask);
                         IntegrateVelocity<TIntegratorCallbacks, TBatchIntegrationMode>(ref integratorCallbacks, ref decodedBodyIndices, gatheredInertia, dt, integrationMask, position, orientation, ref velocity, workerIndex, out inertia);
+                        BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                         bodies.ScatterInertia(ref inertia, encodedBodyIndices, integrationMask);
                     }
                     else
                     {
                         inertia = gatheredInertia;
+                        BepuNativeConversionDiagnostics.RecordGatherAndIntegrateProbe("gather_and_integrate_after", bodies, bundleIndex, bodyIndexInConstraint, encodedBodyIndices, position, orientation, velocity);
                     }
                 }
             }

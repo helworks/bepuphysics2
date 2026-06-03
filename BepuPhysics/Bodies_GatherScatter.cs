@@ -625,6 +625,8 @@ namespace BepuPhysics
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void ScatterVelocities<TAccessFilter>(ref BodyVelocityWide sourceVelocities, ref Vector<int> encodedBodyIndices) where TAccessFilter : unmanaged, IBodyAccessFilter
         {
+            BepuNativeConversionDiagnostics.RecordScatterVelocities(sourceVelocities, encodedBodyIndices);
+
             if (Avx.IsSupported && Vector<float>.Count == 8)
             {
                 //TODO: High precision poses means we'll end up with 64 bits of the second lane containing either orientation components or a position component.

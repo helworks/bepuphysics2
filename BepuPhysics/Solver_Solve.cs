@@ -958,6 +958,16 @@ namespace BepuPhysics
             var intsPerBundle = Vector<int>.Count * bodiesPerConstraintInTypeBatch;
             var bundleStartIndex = constraintStart / Vector<float>.Count;
             var bundleEndIndex = (exclusiveConstraintEnd + Vector<float>.Count - 1) / Vector<float>.Count;
+            BepuNativeConversionDiagnostics.RecordIntegrationResponsibilityTypeBatchProbe(
+                batchIndex,
+                typeBatchIndex,
+                constraintStart,
+                exclusiveConstraintEnd,
+                typeBatch.ConstraintCount,
+                typeBatch.BundleCount,
+                bodiesPerConstraintInTypeBatch,
+                bundleStartIndex,
+                bundleEndIndex);
             Debug.Assert(bundleStartIndex >= 0 && bundleEndIndex <= typeBatch.BundleCount);
             ref var activeSet = ref bodies.ActiveSet;
 
@@ -991,7 +1001,10 @@ namespace BepuPhysics
                             bodyIndex = bundleStart[bundleInnerIndex] & Bodies.BodyReferenceMask;
                         }
                         var bodyHandle = activeSet.IndexToHandle[bodyIndex].Value;
-                        if (firstObservedForBatch.Contains(bodyHandle))
+                        bool firstObservedInBatch = firstObservedForBatch.Contains(bodyHandle);
+                        BepuNativeConversionDiagnostics.RecordIntegrationResponsibilityProbe("candidate", batchIndex, typeBatchIndex, bodyIndexInConstraint, bundleStartIndexInConstraints + bundleInnerIndex, bodyHandle, firstObservedInBatch);
+
+                        if (firstObservedInBatch)
                         {
                             if (typeof(TFallbackness) == typeof(IsFallbackBatch))
                             {
@@ -1015,12 +1028,14 @@ namespace BepuPhysics
                                 var currentSlot = ((ulong)typeBatchIndex << 32) | (uint)indexInTypeBatch;
                                 if (currentSlot == earliestIndex)
                                 {
+                                    BepuNativeConversionDiagnostics.RecordIntegrationResponsibilityProbe("add-fallback", batchIndex, typeBatchIndex, bodyIndexInConstraint, indexInTypeBatch, bodyHandle, true);
                                     integrationFlagsForBodyInConstraint.AddUnsafely(indexInTypeBatch);
                                 }
                             }
                             else
                             {
                                 //Not a fallback; being contained in the observed set is sufficient.
+                                BepuNativeConversionDiagnostics.RecordIntegrationResponsibilityProbe("add", batchIndex, typeBatchIndex, bodyIndexInConstraint, bundleStartIndexInConstraints + bundleInnerIndex, bodyHandle, true);
                                 integrationFlagsForBodyInConstraint.AddUnsafely(bundleStartIndexInConstraints + bundleInnerIndex);
                             }
                         }
@@ -1206,6 +1221,11 @@ namespace BepuPhysics
                         firstObservedInBatch.Flags[flagBundleIndex] = firstObservedBundle;
                     }
                     batchHasAnyIntegrationResponsibilities[batchIndex] = horizontalMerge != 0;
+                    BepuNativeConversionDiagnostics.RecordIntegrationResponsibilityBatchMergeProbe(
+                        batchIndex,
+                        flagBundleCount,
+                        scalarLoopStartIndex,
+                        batchHasAnyIntegrationResponsibilities[batchIndex]);
                 }
 
                 //var start = Stopwatch.GetTimestamp();
