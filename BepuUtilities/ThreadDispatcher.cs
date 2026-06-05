@@ -18,7 +18,7 @@ namespace BepuUtilities
         public int ThreadCount => threadCount;
         struct Worker
         {
-            public Thread Thread;
+            public Thread ManagedThread;
             public AutoResetEvent Signal;
         }
 
@@ -51,9 +51,9 @@ namespace BepuUtilities
             workers = new Worker[threadCount - 1];
             for (int i = 0; i < workers.Length; ++i)
             {
-                workers[i] = new Worker { Thread = new Thread(WorkerLoop), Signal = new AutoResetEvent(false) };
-                workers[i].Thread.IsBackground = true;
-                workers[i].Thread.Start(new WorkerLoopContext { Signal = workers[i].Signal, WorkerIndex = i + 1 });
+                workers[i] = new Worker { ManagedThread = new Thread(WorkerLoop), Signal = new AutoResetEvent(false) };
+                workers[i].ManagedThread.IsBackground = true;
+                workers[i].ManagedThread.Start(new WorkerLoopContext { Signal = workers[i].Signal, WorkerIndex = i + 1 });
             }
             finished = new AutoResetEvent(false);
             WorkerPools = new WorkerBufferPools(threadCount, threadPoolBlockAllocationSize);
@@ -191,7 +191,7 @@ namespace BepuUtilities
                 SignalThreads(threadCount);
                 foreach (var worker in workers)
                 {
-                    worker.Thread.Join();
+                    worker.ManagedThread.Join();
                     worker.Signal.Dispose();
                 }
                 WorkerPools.Dispose();

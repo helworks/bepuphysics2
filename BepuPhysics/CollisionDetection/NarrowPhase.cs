@@ -332,16 +332,16 @@ namespace BepuPhysics.CollisionDetection
         public TCallbacks Callbacks;
         public struct OverlapWorker
         {
+            public QuickList<int> PendingSetAwakenings;
             public CollisionBatcher<CollisionCallbacks> Batcher;
             public PendingConstraintAddCache PendingConstraints;
-            public QuickList<int> PendingSetAwakenings;
 
             public OverlapWorker(int workerIndex, BufferPool pool, NarrowPhase<TCallbacks> narrowPhase)
             {
+                PendingSetAwakenings = new QuickList<int>(16, pool);
                 Batcher = new CollisionBatcher<CollisionCallbacks>(pool, narrowPhase.Shapes, narrowPhase.CollisionTaskRegistry, narrowPhase.timestepDuration,
                     new CollisionCallbacks(workerIndex, pool, narrowPhase));
                 PendingConstraints = new PendingConstraintAddCache(pool);
-                PendingSetAwakenings = new QuickList<int>(16, pool);
             }
         }
 

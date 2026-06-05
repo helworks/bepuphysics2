@@ -1084,30 +1084,72 @@ namespace BepuPhysics
         Action<int> constraintIntegrationResponsibilitiesWorker;
         IndexSet mergedConstrainedBodyHandles;
 
+        void EnsureIntegrationResponsibilityStorage()
+        {
+            if (integrationFlags == null || integrationFlags.Length != ActiveSet.Batches.Count)
+            {
+                integrationFlags = new IndexSet[ActiveSet.Batches.Count][][];
+            }
+            integrationFlags[0] = default;
+
+            if (coarseBatchIntegrationResponsibilities == null || coarseBatchIntegrationResponsibilities.Length != ActiveSet.Batches.Count)
+            {
+                coarseBatchIntegrationResponsibilities = new bool[ActiveSet.Batches.Count][];
+            }
+
+            for (int batchIndex = 1; batchIndex < integrationFlags.Length; ++batchIndex)
+            {
+                ref var batch = ref ActiveSet.Batches[batchIndex];
+                var flagsForBatch = integrationFlags[batchIndex];
+                if (flagsForBatch == null || flagsForBatch.Length != batch.TypeBatches.Count)
+                {
+                    flagsForBatch = new IndexSet[batch.TypeBatches.Count][];
+                    integrationFlags[batchIndex] = flagsForBatch;
+                }
+
+                var coarseFlagsForBatch = coarseBatchIntegrationResponsibilities[batchIndex];
+                if (coarseFlagsForBatch == null || coarseFlagsForBatch.Length != batch.TypeBatches.Count)
+                {
+                    coarseFlagsForBatch = new bool[batch.TypeBatches.Count];
+                    coarseBatchIntegrationResponsibilities[batchIndex] = coarseFlagsForBatch;
+                }
+
+                for (int typeBatchIndex = 0; typeBatchIndex < flagsForBatch.Length; ++typeBatchIndex)
+                {
+                    ref var typeBatch = ref batch.TypeBatches[typeBatchIndex];
+                    var bodiesPerConstraint = TypeProcessors[typeBatch.TypeId].BodiesPerConstraint;
+                    var flagsForTypeBatch = flagsForBatch[typeBatchIndex];
+                    if (flagsForTypeBatch == null || flagsForTypeBatch.Length != bodiesPerConstraint)
+                    {
+                        flagsForTypeBatch = new IndexSet[bodiesPerConstraint];
+                        flagsForBatch[typeBatchIndex] = flagsForTypeBatch;
+                    }
+
+                    coarseFlagsForBatch[typeBatchIndex] = false;
+                    for (int bodyIndexInConstraint = 0; bodyIndexInConstraint < flagsForTypeBatch.Length; ++bodyIndexInConstraint)
+                    {
+                        Debug.Assert(!flagsForTypeBatch[bodyIndexInConstraint].Flags.Allocated, "Integration responsibility flags should have been returned after the previous solver step.");
+                        flagsForTypeBatch[bodyIndexInConstraint].Resize(typeBatch.ConstraintCount, pool);
+                        flagsForTypeBatch[bodyIndexInConstraint].Clear();
+                    }
+                }
+            }
+        }
+
+        void EnsureBodiesFirstObservedInBatchesStorage()
+        {
+            if (bodiesFirstObservedInBatches == null || bodiesFirstObservedInBatches.Length != batchReferencedHandles.Count)
+            {
+                bodiesFirstObservedInBatches = new IndexSet[batchReferencedHandles.Count];
+            }
+            bodiesFirstObservedInBatches[0] = default;
+        }
+
         public override IndexSet PrepareConstraintIntegrationResponsibilities(IThreadDispatcher threadDispatcher = null)
         {
             if (ActiveSet.Batches.Count > 0)
             {
-                integrationFlags = new IndexSet[ActiveSet.Batches.Count][][];
-                integrationFlags[0] = default;
-                coarseBatchIntegrationResponsibilities = new bool[ActiveSet.Batches.Count][];
-                for (int batchIndex = 1; batchIndex < integrationFlags.Length; ++batchIndex)
-                {
-                    ref var batch = ref ActiveSet.Batches[batchIndex];
-                    var flagsForBatch = new IndexSet[batch.TypeBatches.Count][];
-                    integrationFlags[batchIndex] = flagsForBatch;
-                    coarseBatchIntegrationResponsibilities[batchIndex] = new bool[batch.TypeBatches.Count];
-                    for (int typeBatchIndex = 0; typeBatchIndex < flagsForBatch.Length; ++typeBatchIndex)
-                    {
-                        var flagsForTypeBatch = new IndexSet[TypeProcessors[batch.TypeBatches[typeBatchIndex].TypeId].BodiesPerConstraint];
-                        flagsForBatch[typeBatchIndex] = flagsForTypeBatch;
-                        ref var typeBatch = ref batch.TypeBatches[typeBatchIndex];
-                        for (int bodyIndexInConstraint = 0; bodyIndexInConstraint < flagsForTypeBatch.Length; ++bodyIndexInConstraint)
-                        {
-                            flagsForTypeBatch[bodyIndexInConstraint] = new IndexSet(pool, typeBatch.ConstraintCount);
-                        }
-                    }
-                }
+                EnsureIntegrationResponsibilityStorage();
 
                 //Brute force fallback for debugging:
                 //for (int i = 0; i < bodies.ActiveSet.Count; ++i)
@@ -1137,7 +1179,7 @@ namespace BepuPhysics
                 //    }
                 //}
 
-                bodiesFirstObservedInBatches = new IndexSet[batchReferencedHandles.Count];
+                EnsureBodiesFirstObservedInBatchesStorage();
                 //We don't have to consider the first batch, since we know ahead of time that the first batch will be the first time we see any bodies in it.
                 //Just copy directly from the first batch into the merged to initialize it.
                 //Note "+ 64" instead of "+ 63": the highest possibly claimed id is inclusive!
@@ -1154,9 +1196,8 @@ namespace BepuPhysics
                 {
                     ref var batchHandles = ref batchReferencedHandles[batchIndex];
                     var bundleCount = Math.Min(mergedConstrainedBodyHandles.Flags.Length, batchHandles.Flags.Length);
-                    var firstObservedInBatch = new IndexSet();
-                    pool.Take(bundleCount, out firstObservedInBatch.Flags);
-                    bodiesFirstObservedInBatches[batchIndex] = firstObservedInBatch;
+                    Debug.Assert(!bodiesFirstObservedInBatches[batchIndex].Flags.Allocated, "First-observed batch flags should have been returned after the previous solver step.");
+                    pool.Take(bundleCount, out bodiesFirstObservedInBatches[batchIndex].Flags);
                 }
                 GetSynchronizedBatchCount(out var synchronizedBatchCount, out var fallbackExists);
                 //Note that we are not multithreading the batch merging phase. This typically takes a handful of microseconds.
@@ -1387,7 +1428,6 @@ namespace BepuPhysics
                 {
                     bodiesFirstObservedInBatches[batchIndex].Dispose(pool);
                 }
-                bodiesFirstObservedInBatches = null;
 
                 //Add the constrained kinematics to the constrained body handles. The kinematics were absent from batch referenced handles.
                 //TODO: This assumes the number of kinematics is low relative to the number of bodies and does not need to be multithreaded.
@@ -1423,8 +1463,6 @@ namespace BepuPhysics
                         }
                     }
                 }
-                integrationFlags = null;
-                coarseBatchIntegrationResponsibilities = null;
                 mergedConstrainedBodyHandles.Dispose(pool);
             }
         }

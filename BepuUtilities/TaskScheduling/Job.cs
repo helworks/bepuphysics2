@@ -6,17 +6,12 @@ using BepuUtilities.Memory;
 
 namespace BepuUtilities.TaskScheduling;
 
-[StructLayout(LayoutKind.Explicit, Size = 292)]
+[StructLayout(LayoutKind.Sequential)]
 internal unsafe struct Job
 {
-    [FieldOffset(0)]
     public Buffer<Task> Tasks;
-    [FieldOffset(16)]
     public Job* Previous;
-    [FieldOffset(24)]
     public ulong Tag;
-
-    [FieldOffset(160)]
     public int Counter;
 
 

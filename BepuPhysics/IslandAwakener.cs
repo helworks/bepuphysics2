@@ -204,14 +204,11 @@ namespace BepuPhysics
             public int TargetTypeBatch;
         }
 
-        [StructLayout(LayoutKind.Explicit)]
+        [StructLayout(LayoutKind.Sequential)]
         struct PhaseTwoJob
         {
-            [FieldOffset(0)]
             public PhaseTwoJobType Type;
-            [FieldOffset(4)]
             public CopyConstraintRegionJob CopyConstraintRegion;
-            [FieldOffset(8)]
             public AddFallbackTypeBatchConstraintsJob AddFallbackTypeBatchConstraints;
         }
 
