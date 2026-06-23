@@ -11,7 +11,7 @@ namespace BepuUtilities.TaskScheduling;
 /// </summary>
 public unsafe struct TaskStack
 {
-    Buffer<Worker> workers;
+    Buffer<TaskStackWorker> workers;
 
     [StructLayout(LayoutKind.Explicit, Size = 256 + 16)]
     struct StopPad
@@ -40,7 +40,7 @@ public unsafe struct TaskStack
         pool.Take(workerCount, out workers);
         for (int i = 0; i < workerCount; ++i)
         {
-            workers[i] = new Worker(i, dispatcher, initialWorkerJobCapacity, continuationBlockCapacity);
+            workers[i] = new TaskStackWorker(i, dispatcher, initialWorkerJobCapacity, continuationBlockCapacity);
         }
         Reset(dispatcher);
     }

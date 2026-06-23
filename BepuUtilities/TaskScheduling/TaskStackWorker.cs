@@ -5,7 +5,7 @@ using BepuUtilities.Memory;
 
 namespace BepuUtilities.TaskScheduling;
 
-internal unsafe struct Worker
+internal unsafe struct TaskStackWorker
 {
     //The worker needs to track allocations made over the course of its lifetime so they can be disposed later.
     public QuickList<nuint> AllocatedJobs;
@@ -27,7 +27,7 @@ internal unsafe struct Worker
     }
 
 
-    public Worker(int workerIndex, IThreadDispatcher dispatcher, int initialJobCapacity = 128, int continuationBlockCapacity = 128)
+    public TaskStackWorker(int workerIndex, IThreadDispatcher dispatcher, int initialJobCapacity = 128, int continuationBlockCapacity = 128)
     {
         var threadPool = dispatcher.WorkerPools[workerIndex];
         WorkerIndex = workerIndex;
