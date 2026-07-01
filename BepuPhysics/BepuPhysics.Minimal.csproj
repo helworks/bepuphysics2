@@ -47,7 +47,6 @@
     <Compile Remove="Collidables\ConvexHull.cs" />
     <Compile Remove="Collidables\ConvexHullHelper.cs" />
     <Compile Remove="Collidables\Cylinder.cs" />
-    <Compile Remove="Collidables\Mesh.cs" />
     <Compile Remove="Minimal\Compound.Minimal.cs" />
     <Compile Remove="CollisionDetection\CompoundMeshReduction.cs" />
     <Compile Remove="CollisionDetection\MeshReduction.cs" />
@@ -61,7 +60,6 @@
     <Compile Remove="CollisionDetection\CollisionTasks\*Compound*.cs" />
     <Compile Remove="CollisionDetection\CollisionTasks\*ConvexHull*.cs" />
     <Compile Remove="CollisionDetection\CollisionTasks\*Cylinder*.cs" />
-    <Compile Remove="CollisionDetection\CollisionTasks\*Mesh*.cs" />
     <Compile Remove="CollisionDetection\CollisionTasks\*Triangle*.cs" />
     <Compile Remove="Constraints\AreaConstraint.cs" />
     <Compile Remove="Constraints\Angular*.cs" />
@@ -122,3 +120,5 @@
     </None>
   </ItemGroup>
 </Project>
+    <Compile Remove="Collidables\Mesh.cs" />
+    <Compile Remove="CollisionDetection\CollisionTasks\*Mesh*.cs" />

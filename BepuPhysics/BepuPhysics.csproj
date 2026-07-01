@@ -29,6 +29,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Minimal\**\*.cs" />
     <ProjectReference Include="..\BepuUtilities\BepuUtilities.csproj" />
   </ItemGroup>
 
