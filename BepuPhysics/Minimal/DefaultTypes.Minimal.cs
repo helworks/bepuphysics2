@@ -23,6 +23,20 @@ namespace BepuPhysics {
             solver.Register<Contact2>();
             solver.Register<Contact3>();
             solver.Register<Contact4>();
+            solver.Register<Contact2NonconvexOneBody>();
+            solver.Register<Contact3NonconvexOneBody>();
+            solver.Register<Contact4NonconvexOneBody>();
+            solver.Register<Contact2Nonconvex>();
+            solver.Register<Contact3Nonconvex>();
+            solver.Register<Contact4Nonconvex>();
+
+            narrowPhase.RegisterContactConstraintAccessor(new NonconvexTwoBodyAccessor<Contact4Nonconvex, Contact4NonconvexPrestepData, Contact4NonconvexAccumulatedImpulses, ContactImpulses4>());
+            narrowPhase.RegisterContactConstraintAccessor(new NonconvexTwoBodyAccessor<Contact3Nonconvex, Contact3NonconvexPrestepData, Contact3NonconvexAccumulatedImpulses, ContactImpulses3>());
+            narrowPhase.RegisterContactConstraintAccessor(new NonconvexTwoBodyAccessor<Contact2Nonconvex, Contact2NonconvexPrestepData, Contact2NonconvexAccumulatedImpulses, ContactImpulses2>());
+
+            narrowPhase.RegisterContactConstraintAccessor(new NonconvexOneBodyAccessor<Contact4NonconvexOneBody, Contact4NonconvexOneBodyPrestepData, Contact4NonconvexAccumulatedImpulses, ContactImpulses4>());
+            narrowPhase.RegisterContactConstraintAccessor(new NonconvexOneBodyAccessor<Contact3NonconvexOneBody, Contact3NonconvexOneBodyPrestepData, Contact3NonconvexAccumulatedImpulses, ContactImpulses3>());
+            narrowPhase.RegisterContactConstraintAccessor(new NonconvexOneBodyAccessor<Contact2NonconvexOneBody, Contact2NonconvexOneBodyPrestepData, Contact2NonconvexAccumulatedImpulses, ContactImpulses2>());
 
             narrowPhase.RegisterContactConstraintAccessor(new ConvexTwoBodyAccessor<Contact4, Contact4PrestepData, Contact4AccumulatedImpulses, ContactImpulses4>());
             narrowPhase.RegisterContactConstraintAccessor(new ConvexTwoBodyAccessor<Contact3, Contact3PrestepData, Contact3AccumulatedImpulses, ContactImpulses3>());
@@ -42,7 +56,11 @@ namespace BepuPhysics {
             CollisionTaskRegistry defaultTaskRegistry = new CollisionTaskRegistry();
             defaultTaskRegistry.Register(new SphereSphereCollisionTask());
             defaultTaskRegistry.Register(new SphereBoxCollisionTask());
+            defaultTaskRegistry.Register(new SphereTriangleCollisionTask());
             defaultTaskRegistry.Register(new BoxBoxCollisionTask());
+            defaultTaskRegistry.Register(new BoxTriangleCollisionTask());
+            defaultTaskRegistry.Register(new ConvexCompoundCollisionTask<Sphere, Mesh, ConvexCompoundOverlapFinder<Sphere, SphereWide, Mesh>, ConvexMeshContinuations<Mesh>, MeshReduction>());
+            defaultTaskRegistry.Register(new ConvexCompoundCollisionTask<Box, Mesh, ConvexCompoundOverlapFinder<Box, BoxWide, Mesh>, ConvexMeshContinuations<Mesh>, MeshReduction>());
             return defaultTaskRegistry;
         }
 

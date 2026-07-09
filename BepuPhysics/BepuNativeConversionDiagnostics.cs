@@ -1,3 +1,113 @@
+#if HELENGINE_CODEGEN_FEATURE_DISABLED_PHYSICS3D_DIAGNOSTICS
+using System.Numerics;
+using BepuUtilities;
+using BepuUtilities.Memory;
+
+namespace BepuPhysics {
+    /// <summary>
+    /// Provides a compact no-op diagnostics surface when the generic physics-diagnostics runtime feature is disabled for code generation.
+    /// </summary>
+    public static class BepuNativeConversionDiagnostics {
+        /// <summary>
+        /// Accepts diagnostics reset requests without retaining any buffered trace state when diagnostics are disabled.
+        /// </summary>
+        /// <param name="enabled">Ignored diagnostics-enabled flag.</param>
+        public static void Reset(bool enabled) {
+        }
+
+        /// <summary>
+        /// Ignores physics-step notifications when diagnostics are disabled.
+        /// </summary>
+        public static void BeginPhysicsStep() {
+        }
+
+        /// <summary>
+        /// Discards constrained-kinematic prepass probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordKinematicPrepass(bool integratesPoseFirst, int workerIndex, int bodyCount, int bundleStartIndex, int bundleEndIndex, int bundleIndex, int bundleBaseIndex, int countInBundle, Buffer<int> bodyHandles, Vector<int> bodyIndicesVector) {
+        }
+
+        /// <summary>
+        /// Discards post-substep selection probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordPostSubstepSelection(Vector<int> bodyIndices, Vector<int> unconstrainedMask, Vector<int> unconstrainedVelocityIntegrationMask, Vector<int> velocityMaskedBodyIndices, bool anyBodyInBundleIsUnconstrained, bool anyBodyInBundleNeedsVelocityIntegration) {
+        }
+
+        /// <summary>
+        /// Discards scatter-velocity probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordScatterVelocities(BodyVelocityWide sourceVelocities, Vector<int> encodedBodyIndices) {
+        }
+
+        /// <summary>
+        /// Discards two-body solve probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordTwoBodySolveProbe(
+            string constraintTypeName,
+            string phase,
+            Bodies bodies,
+            int bundleIndex,
+            Vector<int> indexA,
+            Vector<int> indexB,
+            Vector3Wide positionA,
+            QuaternionWide orientationA,
+            Vector3Wide positionB,
+            QuaternionWide orientationB,
+            BodyVelocityWide wsvA,
+            BodyVelocityWide wsvB) {
+        }
+
+        /// <summary>
+        /// Discards integration-responsibility probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordIntegrationResponsibilityProbe(string phase, int batchIndex, int typeBatchIndex, int bodyIndexInConstraint, int constraintIndex, int bodyHandle, bool isFirstObservedInBatch) {
+        }
+
+        /// <summary>
+        /// Discards integration batch-merge probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordIntegrationResponsibilityBatchMergeProbe(int batchIndex, int flagBundleCount, int scalarLoopStartIndex, bool hasAnyIntegrationResponsibilities) {
+        }
+
+        /// <summary>
+        /// Discards integration type-batch probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordIntegrationResponsibilityTypeBatchProbe(int batchIndex, int typeBatchIndex, int constraintStart, int exclusiveConstraintEnd, int constraintCount, int bundleCount, int bodiesPerConstraint, int bundleStartIndex, int bundleEndIndex) {
+        }
+
+        /// <summary>
+        /// Reports that no tracked stack body is being monitored when diagnostics are disabled.
+        /// </summary>
+        /// <param name="bodyHandle">Ignored body handle.</param>
+        /// <returns>Always <c>false</c>.</returns>
+        public static bool ShouldRecordTrackedStackBodyHandle(int bodyHandle) {
+            return false;
+        }
+
+        /// <summary>
+        /// Discards gather-and-integrate probes when diagnostics are disabled.
+        /// </summary>
+        public static void RecordGatherAndIntegrateProbe(
+            string phase,
+            Bodies bodies,
+            int bundleIndex,
+            int bodyIndexInConstraint,
+            Vector<int> encodedBodyIndices,
+            Vector3Wide position,
+            QuaternionWide orientation,
+            BodyVelocityWide velocity) {
+        }
+
+        /// <summary>
+        /// Returns an empty buffered snapshot payload when diagnostics are disabled.
+        /// </summary>
+        /// <returns>Always <see cref="string.Empty"/>.</returns>
+        public static string DrainPendingText() {
+            return string.Empty;
+        }
+    }
+}
+#else
 using System.Numerics;
 using System.Text;
 using BepuUtilities;
@@ -837,3 +947,4 @@ namespace BepuPhysics {
         }
     }
 }
+#endif
