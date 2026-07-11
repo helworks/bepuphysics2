@@ -87,6 +87,21 @@ public partial class Simulation : IDisposable
     public ITimestepper Timestepper { get; private set; }
 
     /// <summary>
+    /// Fires after the broad phase updates its structures and before overlap dispatch begins.
+    /// </summary>
+    public event TimestepperStageHandler BeforeCollisionOverlapDispatch;
+
+    /// <summary>
+    /// Fires after overlap dispatch completes and before the narrow phase flush begins.
+    /// </summary>
+    public event TimestepperStageHandler AfterCollisionOverlapDispatch;
+
+    /// <summary>
+    /// Fires after the narrow phase flush completes and collision detection is about to return to the caller.
+    /// </summary>
+    public event TimestepperStageHandler AfterCollisionFlush;
+
+    /// <summary>
     /// Gets or sets whether to use a deterministic time step when using multithreading. When set to true, additional time is spent sorting constraint additions and transfers.
     /// Note that this can only affect determinism locally- different processor architectures may implement instructions differently.
     /// </summary>
@@ -255,17 +270,23 @@ public partial class Simulation : IDisposable
     public void CollisionDetection(float dt, IThreadDispatcher threadDispatcher = null)
     {
         profiler.Start(BroadPhase);
-        //BroadPhase.Update(threadDispatcher);
+#if HELENGINE_CODEGEN_BEPU_USE_CLASSIC_BROAD_PHASE_UPDATE
+        BroadPhase.Update(threadDispatcher);
+#else
         BroadPhase.Update2(threadDispatcher);
+#endif
         profiler.End(BroadPhase);
+        BeforeCollisionOverlapDispatch?.Invoke(dt, threadDispatcher);
 
         profiler.Start(BroadPhaseOverlapFinder);
         BroadPhaseOverlapFinder.DispatchOverlaps(dt, threadDispatcher);
         profiler.End(BroadPhaseOverlapFinder);
+        AfterCollisionOverlapDispatch?.Invoke(dt, threadDispatcher);
 
         profiler.Start(NarrowPhase);
         NarrowPhase.Flush(threadDispatcher);
         profiler.End(NarrowPhase);
+        AfterCollisionFlush?.Invoke(dt, threadDispatcher);
     }
 
     /// <summary>
