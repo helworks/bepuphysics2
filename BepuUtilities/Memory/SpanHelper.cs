@@ -96,8 +96,8 @@ namespace BepuUtilities.Memory
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void Copy<T>(in Buffer<T> source, int sourceIndex, in Buffer<T> target, int targetIndex, int count) where T : unmanaged
         {
-            Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.Length, "Can't perform a copy that extends beyond the target span.");
-            Debug.Assert(sourceIndex >= 0 && sourceIndex + count <= source.Length, "Can't perform a copy that extends beyond the source span.");
+            Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.length, "Can't perform a copy that extends beyond the target span.");
+            Debug.Assert(sourceIndex >= 0 && sourceIndex + count <= source.length, "Can't perform a copy that extends beyond the source span.");
             Unsafe.CopyBlockUnaligned(target.Memory + targetIndex, source.Memory + sourceIndex, (uint)(Unsafe.SizeOf<T>() * count));
         }
 
@@ -114,7 +114,7 @@ namespace BepuUtilities.Memory
         public static unsafe void Copy<T>(in Buffer<T> source, int sourceIndex, Span<T> target, int targetIndex, int count) where T : unmanaged
         {
             Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.Length, "Can't perform a copy that extends beyond the target span.");
-            Debug.Assert(sourceIndex >= 0 && sourceIndex + count <= source.Length, "Can't perform a copy that extends beyond the source span.");
+            Debug.Assert(sourceIndex >= 0 && sourceIndex + count <= source.length, "Can't perform a copy that extends beyond the source span.");
             Unsafe.CopyBlockUnaligned(ref Unsafe.As<T, byte>(ref target[targetIndex]), ref Unsafe.AsRef<byte>(source.Memory + sourceIndex), (uint)(Unsafe.SizeOf<T>() * count));
         }
 
@@ -130,7 +130,7 @@ namespace BepuUtilities.Memory
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void Copy<T>(in Span<T> source, int sourceIndex, in Buffer<T> target, int targetIndex, int count) where T : unmanaged
         {
-            Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.Length, "Can't perform a copy that extends beyond the target span.");
+            Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.length, "Can't perform a copy that extends beyond the target span.");
             Debug.Assert(sourceIndex >= 0 && sourceIndex + count <= source.Length, "Can't perform a copy that extends beyond the source span.");
             Unsafe.CopyBlockUnaligned(ref Unsafe.AsRef<byte>(target.Memory + targetIndex), ref Unsafe.As<T, byte>(ref source[sourceIndex]), (uint)(Unsafe.SizeOf<T>() * count));
         }
@@ -147,7 +147,7 @@ namespace BepuUtilities.Memory
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void Copy<T>(in ReadOnlySpan<T> source, int sourceIndex, in Buffer<T> target, int targetIndex, int count) where T : unmanaged
         {
-            Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.Length, "Can't perform a copy that extends beyond the target span.");
+            Debug.Assert(targetIndex >= 0 && targetIndex + count <= target.length, "Can't perform a copy that extends beyond the target span.");
             Debug.Assert(sourceIndex >= 0 && sourceIndex + count <= source.Length, "Can't perform a copy that extends beyond the source span.");
             source.Slice(sourceIndex, count).CopyTo(new Span<T>(target.Memory + targetIndex, count));
         }

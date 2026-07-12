@@ -18,6 +18,11 @@ namespace BepuPhysics.CollisionDetection
     public unsafe partial class BroadPhase : IDisposable
     {
         /// <summary>
+        /// Fires when the broad phase reaches one internal update stage so host diagnostics can distinguish crashes inside refinement from later collision-detection work.
+        /// </summary>
+        public event Action<string> StageReported;
+
+        /// <summary>
         /// Collidable references contained within the <see cref="ActiveTree"/>. Note that values at or beyond the <see cref="ActiveTree"/>.LeafCount are not defined.
         /// </summary>
         public Buffer<CollidableReference> ActiveLeaves;
@@ -366,9 +371,11 @@ namespace BepuPhysics.CollisionDetection
         {
             ActiveRefinementSchedule(frameIndex, ActiveTree, out var activeRootRefinementSize, out var activeSubtreeRefinementCount, out var activeSubtreeRefinementSize, out var usePriorityQueueActive);
             StaticRefinementSchedule(frameIndex, StaticTree, out var staticRootRefinementSize, out var staticSubtreeRefinementCount, out var staticSubtreeRefinementSize, out var usePriorityQueueStatic);
+            StageReported?.Invoke("AfterBroadPhaseSchedulesResolved");
             const int minimumLeafCountForThreading = 256;
             if (threadDispatcher != null && threadDispatcher.ThreadCount > 1 && (ActiveTree.LeafCount >= minimumLeafCountForThreading || StaticTree.LeafCount >= minimumLeafCountForThreading))
             {
+                StageReported?.Invoke("BeforeBroadPhaseThreadedRefine");
                 //Distribute tasks for refinement roughly in proportion to their cost.
                 //This doesn't need to be perfect.
                 //Cost of a refinement is roughly n * log2(n), for n = refinement size.
@@ -421,16 +428,22 @@ namespace BepuPhysics.CollisionDetection
                 //The start indices need to be copied back for both.
                 activeSubtreeRefinementStartIndex = activeRefineContext.SubtreeRefinementStartIndex;
                 staticSubtreeRefinementStartIndex = staticRefineContext.SubtreeRefinementStartIndex;
+                StageReported?.Invoke("AfterBroadPhaseThreadedRefine");
 
             }
             else
             {
+                StageReported?.Invoke("BeforeBroadPhaseSingleThreadedStaticRefine");
                 StaticTree.Refine2(staticRootRefinementSize, ref staticSubtreeRefinementStartIndex, staticSubtreeRefinementCount, staticSubtreeRefinementSize, Pool);
+                StageReported?.Invoke("AfterBroadPhaseSingleThreadedStaticRefine");
                 //Note we refine *before* refitting. This means the refinement is working with slightly out of date data, but that's okay, the entire point is incremental refinement.
                 //The reason to prefer this is that refining scrambles the memory layout a little bit.
                 //Refit with cache optimization *after* refinement ensures the rest of the library (and the user) sees the cache optimized version.
+                StageReported?.Invoke("BeforeBroadPhaseSingleThreadedActiveRefine");
                 ActiveTree.Refine2(activeRootRefinementSize, ref activeSubtreeRefinementStartIndex, activeSubtreeRefinementCount, activeSubtreeRefinementSize, Pool);
+                StageReported?.Invoke("AfterBroadPhaseSingleThreadedActiveRefineBeforeRefit");
                 ActiveTree.Refit2WithCacheOptimization(Pool);
+                StageReported?.Invoke("AfterBroadPhaseSingleThreadedActiveRefit");
             }
             if (frameIndex == int.MaxValue)
                 frameIndex = 0;
