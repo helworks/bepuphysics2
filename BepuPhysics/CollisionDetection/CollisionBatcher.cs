@@ -38,6 +38,10 @@ namespace BepuPhysics.CollisionDetection
         CollisionTaskRegistry typeMatrix;
         public TCallbacks Callbacks;
         /// <summary>
+        /// Receives optional diagnostic records for the batcher's native task-execution and contact-result boundaries.
+        /// </summary>
+        public Action<string> StageReporter;
+        /// <summary>
         /// Timestep duration used by pairs which rely on velocity to compute local bounding boxes for pruning.
         /// </summary>
         public float Dt;
@@ -54,13 +58,14 @@ namespace BepuPhysics.CollisionDetection
         public BatcherContinuations<MeshReduction> MeshReductions;
         public BatcherContinuations<CompoundMeshReduction> CompoundMeshReductions;
 
-        public CollisionBatcher(BufferPool pool, Shapes shapes, CollisionTaskRegistry collisionTypeMatrix, float dt, TCallbacks callbacks)
+        public CollisionBatcher(BufferPool pool, Shapes shapes, CollisionTaskRegistry collisionTypeMatrix, float dt, TCallbacks callbacks, Action<string> stageReporter)
         {
             Pool = pool;
             Shapes = shapes;
             typeMatrix = collisionTypeMatrix;
             Dt = dt;
             Callbacks = callbacks;
+            StageReporter = stageReporter;
             pool.TakeAtLeast(collisionTypeMatrix.tasks.Length, out batches);
             //Clearing is required ensure that we know when a batch needs to be created and when a batch needs to be disposed.
             batches.Clear(0, collisionTypeMatrix.tasks.Length);
@@ -69,6 +74,18 @@ namespace BepuPhysics.CollisionDetection
             CompoundMeshReductions = new BatcherContinuations<CompoundMeshReduction>();
             minimumBatchIndex = collisionTypeMatrix.tasks.Length;
             maximumBatchIndex = -1;
+        }
+
+        /// <summary>
+        /// Emits a diagnostic record when the hosting narrow phase enabled runtime stage tracing.
+        /// </summary>
+        /// <param name="stageName">Stable name of the reached collision-batcher transition.</param>
+        public void ReportStage(string stageName)
+        {
+            if (StageReporter != null)
+            {
+                StageReporter(stageName);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -291,6 +308,7 @@ namespace BepuPhysics.CollisionDetection
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Flush()
         {
+            ReportStage("BepuCollisionBatcherBeforeFlush");
             //The collision task registry guarantees that tasks which create work for other tasks always appear sooner in the task array than their child tasks.
             //Since there are no cycles, only one flush pass is required.
             for (int i = minimumBatchIndex; i <= maximumBatchIndex; ++i)
@@ -298,7 +316,9 @@ namespace BepuPhysics.CollisionDetection
                 ref var batch = ref batches[i];
                 if (batch.Pairs.Count > 0)
                 {
+                    ReportStage("BepuCollisionBatcherBeforeExecuteBatch task=" + i + " pairs=" + batch.Pairs.Count);
                     typeMatrix.tasks[i].ExecuteBatch(ref batch.Pairs, ref this);
+                    ReportStage("BepuCollisionBatcherAfterExecuteBatch task=" + i + " pairs=" + batch.Pairs.Count);
                 }
             }
             for (int i = minimumBatchIndex; i <= maximumBatchIndex; ++i)
@@ -323,6 +343,7 @@ namespace BepuPhysics.CollisionDetection
             NonconvexReductions.Dispose(Pool);
             MeshReductions.Dispose(Pool);
             CompoundMeshReductions.Dispose(Pool);
+            ReportStage("BepuCollisionBatcherAfterFlush");
         }
 
         /// <summary>
@@ -333,6 +354,7 @@ namespace BepuPhysics.CollisionDetection
         /// <param name="continuation">Continuation describing the pair and what to do with it.</param>
         public void ProcessConvexResult(ref ConvexContactManifold manifold, ref PairContinuation continuation)
         {
+            ReportStage("BepuCollisionBatcherBeforeProcessConvexResult contacts=" + manifold.Count + " continuation=" + continuation.Type);
 #if DEBUG
             if (manifold.Count > 0)
             {
@@ -342,13 +364,17 @@ namespace BepuPhysics.CollisionDetection
             if (continuation.Type == CollisionContinuationType.Direct)
             {
                 //This result concerns a pair which had no higher level owner. Directly report the manifold result.
+                ReportStage("BepuCollisionBatcherBeforeDirectPairCompleted pair=" + continuation.PairId + " contacts=" + manifold.Count);
                 Callbacks.OnPairCompleted(continuation.PairId, ref manifold);
+                ReportStage("BepuCollisionBatcherAfterDirectPairCompleted pair=" + continuation.PairId);
             }
             else
             {
                 //This result is associated with another pair and requires additional processing.
                 //Before we move to the next stage, notify the submitter that the subpair has completed.
+                ReportStage("BepuCollisionBatcherBeforeChildPairCompleted continuation=" + continuation.Type + " contacts=" + manifold.Count);
                 Callbacks.OnChildPairCompleted(continuation.PairId, continuation.ChildA, continuation.ChildB, ref manifold);
+                ReportStage("BepuCollisionBatcherAfterChildPairCompleted continuation=" + continuation.Type);
                 switch (continuation.Type)
                 {
                     case CollisionContinuationType.NonconvexReduction:

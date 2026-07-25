@@ -28,6 +28,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks {
         /// <param name="batcher">Owning batcher that receives finished contact manifolds.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override unsafe void ExecuteBatch<TCallbacks>(ref UntypedList batch, ref CollisionBatcher<TCallbacks> batcher) {
+            batcher.ReportStage("BepuBoxBoxBeforeExecuteBatch pairs=" + batch.Count);
             ref FliplessPair start = ref Unsafe.As<byte, FliplessPair>(ref batch.Buffer[0]);
             FliplessPairWide<Box, BoxWide> pairWide = default;
             ref BoxWide aWide = ref FliplessPairWide<Box, BoxWide>.GetShapeA(ref pairWide);
@@ -55,6 +56,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks {
                     pairWide.WriteSlot(j, Unsafe.Add(ref bundleStart, j));
                 }
 
+                batcher.ReportStage("BepuBoxBoxBeforePairTester offset=" + i + " pairs=" + countInBundle);
                 BoxPairTester.Test(
                     ref aWide,
                     ref bWide,
@@ -63,16 +65,23 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks {
                     ref FliplessPairWide<Box, BoxWide>.GetOrientationA(ref pairWide),
                     ref FliplessPairWide<Box, BoxWide>.GetOrientationB(ref pairWide),
                     countInBundle,
+                    batcher.StageReporter,
                     out manifoldWide);
+                batcher.ReportStage("BepuBoxBoxAfterPairTester offset=" + i + " pairs=" + countInBundle);
 
                 for (int j = 0; j < countInBundle; ++j) {
                     ref var manifoldSource = ref GetOffsetInstance(ref manifoldWide, j);
                     ref var offsetSource = ref GetOffsetInstance(ref FliplessPairWide<Box, BoxWide>.GetOffsetB(ref pairWide), j);
+                    batcher.ReportStage("BepuBoxBoxBeforeReadFirst slot=" + (i + j));
                     manifoldSource.ReadFirst(offsetSource, ref manifold);
+                    batcher.ReportStage("BepuBoxBoxAfterReadFirst slot=" + (i + j) + " contacts=" + manifold.Count);
                     ref FliplessPair pair = ref Unsafe.Add(ref bundleStart, j);
+                    batcher.ReportStage("BepuBoxBoxBeforeProcessConvexResult slot=" + (i + j));
                     batcher.ProcessConvexResult(ref manifold, ref FliplessPair.GetContinuation(ref pair));
+                    batcher.ReportStage("BepuBoxBoxAfterProcessConvexResult slot=" + (i + j));
                 }
             }
+            batcher.ReportStage("BepuBoxBoxAfterExecuteBatch");
         }
     }
 }

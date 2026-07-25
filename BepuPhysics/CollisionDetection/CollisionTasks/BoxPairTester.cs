@@ -11,8 +11,21 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
     {
         public static int BatchSize => 32;
 
+        /// <summary>
+        /// Reports one internal box-pair test transition when a diagnostic callback is configured.
+        /// </summary>
+        /// <param name="stageReporter">Optional callback receiving the reached transition.</param>
+        /// <param name="stageName">Stable name of the reached test transition.</param>
+        static void ReportStage(Action<string> stageReporter, string stageName)
+        {
+            if (stageReporter != null)
+            {
+                stageReporter(stageName);
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static void TestEdgeEdge(
+        static void TestEdgeEdge(Action<string> stageReporter, string stagePrefix,
             ref Vector<float> halfWidthA, ref Vector<float> halfHeightA, ref Vector<float> halfLengthA,
             ref Vector<float> halfWidthB, ref Vector<float> halfHeightB, ref Vector<float> halfLengthB,
             ref Vector<float> offsetBX, ref Vector<float> offsetBY, ref Vector<float> offsetBZ,
@@ -21,24 +34,36 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             out Vector<float> depth, out Vector<float> localNormalAX, out Vector<float> localNormalAY, out Vector<float> localNormalAZ)
         {
             //Tests one axis of B against all three axes of A.
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "Enter");
             var x2 = edgeBDirection.X * edgeBDirection.X;
             var y2 = edgeBDirection.Y * edgeBDirection.Y;
             var z2 = edgeBDirection.Z * edgeBDirection.Z;
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterSquaredDirection");
             {
                 //A.X x edgeB
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "BeforeAxisXSquareRoot");
                 var length = Vector.SquareRoot(y2 + z2);
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXSquareRoot");
                 var inverseLength = Vector<float>.One / length;
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXInverseLength");
                 localNormalAX = Vector<float>.Zero;
                 localNormalAY = edgeBDirection.Z * inverseLength;
                 localNormalAZ = -edgeBDirection.Y * inverseLength;
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXLocalNormal");
                 var extremeA = Vector.Abs(localNormalAY) * halfHeightA + Vector.Abs(localNormalAZ) * halfLengthA;
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXExtremeA");
                 var nBX = localNormalAY * rBX.Y + localNormalAZ * rBX.Z;
                 var nBY = localNormalAY * rBY.Y + localNormalAZ * rBY.Z;
                 var nBZ = localNormalAY * rBZ.Y + localNormalAZ * rBZ.Z;
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXBoxNormals");
                 var extremeB = Vector.Abs(nBX) * halfWidthB + Vector.Abs(nBY) * halfHeightB + Vector.Abs(nBZ) * halfLengthB;
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXExtremes");
                 depth = extremeA + extremeB - Vector.Abs(offsetBY * localNormalAY + offsetBZ * localNormalAZ);
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXDepth");
                 depth = Vector.ConditionalSelect(Vector.LessThan(length, new Vector<float>(1e-7f)), new Vector<float>(float.MaxValue), depth);
+                ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisXConditional");
             }
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisX");
             {
                 //A.Y x edgeB
                 var length = Vector.SquareRoot(x2 + z2);
@@ -58,6 +83,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
                 localNormalAY = Vector.ConditionalSelect(useY, Vector<float>.Zero, localNormalAY);
                 localNormalAZ = Vector.ConditionalSelect(useY, nZ, localNormalAZ);
             }
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisY");
             {
                 //A.Z x edgeB
                 var length = Vector.SquareRoot(x2 + y2);
@@ -77,6 +103,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
                 localNormalAY = Vector.ConditionalSelect(useZ, nY, localNormalAY);
                 localNormalAZ = Vector.ConditionalSelect(useZ, Vector<float>.Zero, localNormalAZ);
             }
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterAxisZ");
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static void TestFace(ref Vector<float> halfLengthA,
@@ -146,7 +173,8 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
                 Debug.Assert(normalDot[i] >= 0);
             }
 #endif
-            var inverseContactNormalDotFaceNormalB = Vector.ConditionalSelect(Vector.GreaterThan(Vector.Abs(normalDot), new Vector<float>(1e-10f)), Vector<float>.One / normalDot, new Vector<float>(float.MaxValue));
+            var inverseNormalDot = Vector<float>.One / normalDot;
+            var inverseContactNormalDotFaceNormalB = Vector.ConditionalSelect(Vector.GreaterThan(Vector.Abs(normalDot), new Vector<float>(1e-10f)), inverseNormalDot, new Vector<float>(float.MaxValue));
 
             AddBoxAVertex(v00, f00, faceNormalB, contactNormal, inverseContactNormalDotFaceNormalB, faceCenterB, faceTangentBX, faceTangentBY, halfSpanBX, halfSpanBY,
                 ref candidates, ref candidateCount, pairCount, allowContacts);
@@ -159,19 +187,23 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void ClipBoxBEdgeAgainstBoxAFace(in Vector3Wide edgeDirection,
+        private static void ClipBoxBEdgeAgainstBoxAFace(Action<string> stageReporter, string stagePrefix, in Vector3Wide edgeDirection,
             in Vector3Wide edgeStartB0ToEdgeAnchorA00, in Vector3Wide edgeStartB0ToEdgeAnchorA11,
             in Vector3Wide edgeStartB1ToEdgeAnchorA00, in Vector3Wide edgeStartB1ToEdgeAnchorA11,
             in Vector3Wide boxEdgePlaneNormal,
             out Vector<float> min0, out Vector<float> max0,
             out Vector<float> min1, out Vector<float> max1)
         {
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "Enter");
             Vector3Wide.Dot(edgeStartB0ToEdgeAnchorA00, boxEdgePlaneNormal, out var distance00);
             Vector3Wide.Dot(edgeStartB0ToEdgeAnchorA11, boxEdgePlaneNormal, out var distance01);
             Vector3Wide.Dot(edgeStartB1ToEdgeAnchorA00, boxEdgePlaneNormal, out var distance10);
             Vector3Wide.Dot(edgeStartB1ToEdgeAnchorA11, boxEdgePlaneNormal, out var distance11);
             Vector3Wide.Dot(boxEdgePlaneNormal, edgeDirection, out var velocity);
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterClipEdgeDistances");
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "BeforeClipEdgeVelocityDivision");
             var inverseVelocity = Vector<float>.One / velocity;
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterClipEdgeVelocityReciprocal");
 
             //If the distances to the planes have opposing signs, then the start must be between the two.
             var edgeStartIsInside0 = Vector.LessThanOrEqual(distance00 * distance01, Vector<float>.Zero);
@@ -189,21 +221,26 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             max0 = Vector.ConditionalSelect(dontUseFallback, Vector.Max(t00, t01), Vector.ConditionalSelect(edgeStartIsInside0, largePositive, largeNegative));
             min1 = Vector.ConditionalSelect(dontUseFallback, Vector.Min(t10, t11), Vector.ConditionalSelect(edgeStartIsInside1, largeNegative, largePositive));
             max1 = Vector.ConditionalSelect(dontUseFallback, Vector.Max(t10, t11), Vector.ConditionalSelect(edgeStartIsInside1, largePositive, largeNegative));
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "Exit");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void ClipBoxBEdgesAgainstBoxAFace(in Vector3Wide edgeStartB0, in Vector3Wide edgeStartB1, in Vector3Wide edgeDirectionB, in Vector<float> halfSpanB,
+        private static void ClipBoxBEdgesAgainstBoxAFace(Action<string> stageReporter, string stagePrefix, in Vector3Wide edgeStartB0, in Vector3Wide edgeStartB1, in Vector3Wide edgeDirectionB, in Vector<float> halfSpanB,
             in Vector3Wide vertexA00, in Vector3Wide vertexA11, in Vector3Wide edgePlaneNormalAX, in Vector3Wide edgePlaneNormalAY,
             out Vector<float> min0, out Vector<float> max0, out Vector<float> min1, out Vector<float> max1)
         {
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "Enter");
             Vector3Wide.Subtract(vertexA00, edgeStartB0, out var edgeStartB0ToVA00);
             Vector3Wide.Subtract(vertexA11, edgeStartB0, out var edgeStartB0ToVA11);
             Vector3Wide.Subtract(vertexA00, edgeStartB1, out var edgeStartB1ToVA00);
             Vector3Wide.Subtract(vertexA11, edgeStartB1, out var edgeStartB1ToVA11);
-            ClipBoxBEdgeAgainstBoxAFace(edgeDirectionB, edgeStartB0ToVA00, edgeStartB0ToVA11, edgeStartB1ToVA00, edgeStartB1ToVA11, edgePlaneNormalAX,
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "BeforePlaneX");
+            ClipBoxBEdgeAgainstBoxAFace(stageReporter, stagePrefix + "PlaneX", edgeDirectionB, edgeStartB0ToVA00, edgeStartB0ToVA11, edgeStartB1ToVA00, edgeStartB1ToVA11, edgePlaneNormalAX,
                 out var minX0, out var maxX0, out var minX1, out var maxX1);
-            ClipBoxBEdgeAgainstBoxAFace(edgeDirectionB, edgeStartB0ToVA00, edgeStartB0ToVA11, edgeStartB1ToVA00, edgeStartB1ToVA11, edgePlaneNormalAY,
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterPlaneX");
+            ClipBoxBEdgeAgainstBoxAFace(stageReporter, stagePrefix + "PlaneY", edgeDirectionB, edgeStartB0ToVA00, edgeStartB0ToVA11, edgeStartB1ToVA00, edgeStartB1ToVA11, edgePlaneNormalAY,
                 out var minY0, out var maxY0, out var minY1, out var maxY1);
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "AfterPlaneY");
             var negativeHalfSpanB = -halfSpanB;
             //Note that we are computing the intersection of the two intervals.
             //If they overlap, then the minimum is the greater of the two minimums, and the maximum is the lesser of the two maximums.
@@ -216,6 +253,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             max0 = Vector.Min(halfSpanB, Vector.Min(maxX0, maxY0));
             min1 = Vector.Max(negativeHalfSpanB, Vector.Max(minX1, minY1));
             max1 = Vector.Min(halfSpanB, Vector.Min(maxX1, maxY1));
+            ReportStage(stageReporter, "BepuBoxPairTester" + stagePrefix + "Exit");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -241,12 +279,13 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void CreateEdgeContacts(
+        private static void CreateEdgeContacts(Action<string> stageReporter,
             in Vector3Wide faceCenterB, in Vector3Wide faceTangentBX, in Vector3Wide faceTangentBY, in Vector<float> halfSpanBX, in Vector<float> halfSpanBY,
             in Vector3Wide vertexA00, in Vector3Wide vertexA11, in Vector3Wide faceTangentAX, in Vector3Wide faceTangentAY, in Vector3Wide contactNormal,
             in Vector<int> featureIdX0, in Vector<int> featureIdX1, in Vector<int> featureIdY0, in Vector<int> featureIdY1,
             in Vector<float> epsilonScale, ref ManifoldCandidate candidates, ref Vector<int> candidateCount, int pairCount, in Vector<int> allowContacts)
         {
+            ReportStage(stageReporter, "BepuBoxPairTesterCreateEdgeContactsEnter");
             //The critical observation here is that we are working in a contact plane defined by the contact normal- not the triangle face normal or the box face normal.
             //So, when performing clipping, we actually want to clip on the contact normal plane.
             //This is consistent with the box vertex test where we cast a ray from the box vertex to triangle along the contact normal.
@@ -255,17 +294,20 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             //Rather than being the simple tangent axes, we must compute the plane normals such that the plane embeds the box edge while being perpendicular to the contact normal.
             Vector3Wide.CrossWithoutOverlap(faceTangentAY, contactNormal, out var edgePlaneNormalAX);
             Vector3Wide.CrossWithoutOverlap(faceTangentAX, contactNormal, out var edgePlaneNormalAY);
+            ReportStage(stageReporter, "BepuBoxPairTesterCreateEdgeContactsAfterPlaneNormals");
 
             Vector3Wide.Scale(faceTangentBY, halfSpanBY, out var edgeOffsetBX);
             Vector3Wide.Scale(faceTangentBX, halfSpanBX, out var edgeOffsetBY);
             Vector3Wide.Subtract(faceCenterB, edgeOffsetBX, out var edgeStartBX0);
             Vector3Wide.Add(faceCenterB, edgeOffsetBX, out var edgeStartBX1);
-            ClipBoxBEdgesAgainstBoxAFace(edgeStartBX0, edgeStartBX1, faceTangentBX, halfSpanBX, vertexA00, vertexA11, edgePlaneNormalAX, edgePlaneNormalAY,
+            ClipBoxBEdgesAgainstBoxAFace(stageReporter, "ClipBX", edgeStartBX0, edgeStartBX1, faceTangentBX, halfSpanBX, vertexA00, vertexA11, edgePlaneNormalAX, edgePlaneNormalAY,
                 out var minX0, out var maxX0, out var unflippedMinX1, out var unflippedMaxX1);
+            ReportStage(stageReporter, "BepuBoxPairTesterCreateEdgeContactsAfterClipBX");
             Vector3Wide.Subtract(faceCenterB, edgeOffsetBY, out var edgeStartBY0);
             Vector3Wide.Add(faceCenterB, edgeOffsetBY, out var edgeStartBY1);
-            ClipBoxBEdgesAgainstBoxAFace(edgeStartBY0, edgeStartBY1, faceTangentBY, halfSpanBY, vertexA00, vertexA11, edgePlaneNormalAX, edgePlaneNormalAY,
+            ClipBoxBEdgesAgainstBoxAFace(stageReporter, "ClipBY", edgeStartBY0, edgeStartBY1, faceTangentBY, halfSpanBY, vertexA00, vertexA11, edgePlaneNormalAX, edgePlaneNormalAY,
                 out var unflippedMinY0, out var unflippedMaxY0, out var minY1, out var maxY1);
+            ReportStage(stageReporter, "BepuBoxPairTesterCreateEdgeContactsAfterClipBY");
 
             //The intervals were computed with the edge direction pointing in the same direction for both sides of the face. We want to have a consistent winding all the way around so that
             //the end of one edge butts up against the start of the next. Given how we choose to create contacts based on the interval min/max, this ensures a good contact distribution.
@@ -315,6 +357,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             max.X = min.X;
             max.Y = unflippedMinY0;
             AddContactsForEdge(minY0, min, maxY0, max, halfSpanBY, epsilon, ref candidates, ref candidateCount, allowContacts, pairCount);
+            ReportStage(stageReporter, "BepuBoxPairTesterCreateEdgeContactsExit");
         }
 
 
@@ -326,36 +369,67 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             ref Vector3Wide offsetB, ref QuaternionWide orientationA, ref QuaternionWide orientationB, int pairCount,
             out Convex4ContactManifoldWide manifold)
         {
+            Test(ref a, ref b, ref speculativeMargin, ref offsetB, ref orientationA, ref orientationB, pairCount, null, out manifold);
+        }
+
+        /// <summary>
+        /// Tests wide box pairs while reporting optional native diagnostic transitions.
+        /// </summary>
+        /// <param name="a">First wide box shape.</param>
+        /// <param name="b">Second wide box shape.</param>
+        /// <param name="speculativeMargin">Wide speculative-contact margin.</param>
+        /// <param name="offsetB">Wide position of B relative to A.</param>
+        /// <param name="orientationA">Wide orientation of A.</param>
+        /// <param name="orientationB">Wide orientation of B.</param>
+        /// <param name="pairCount">Number of active wide lanes.</param>
+        /// <param name="stageReporter">Optional callback receiving internal test transitions.</param>
+        /// <param name="manifold">Generated wide contact manifold.</param>
+        public static unsafe void Test(
+            ref BoxWide a, ref BoxWide b, ref Vector<float> speculativeMargin,
+            ref Vector3Wide offsetB, ref QuaternionWide orientationA, ref QuaternionWide orientationB, int pairCount, Action<string> stageReporter,
+            out Convex4ContactManifoldWide manifold)
+        {
+            ReportStage(stageReporter, "BepuBoxPairTesterEnter");
             Unsafe.SkipInit(out manifold);
             Matrix3x3Wide.CreateFromQuaternion(orientationA, out var worldRA);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterWorldRotationA");
             Matrix3x3Wide.CreateFromQuaternion(orientationB, out var worldRB);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterWorldRotationB");
             Matrix3x3Wide.MultiplyByTransposeWithoutOverlap(worldRB, worldRA, out var rB);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterRelativeRotation");
             Matrix3x3Wide.TransformByTransposedWithoutOverlap(offsetB, worldRA, out var localOffsetB);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterLocalOffset");
 
             Vector3Wide localNormal;
             //b.X
-            TestEdgeEdge(
+            ReportStage(stageReporter, "BepuBoxPairTesterBeforeEdgeTestX");
+            TestEdgeEdge(stageReporter, "EdgeX",
                 ref a.HalfWidth, ref a.HalfHeight, ref a.HalfLength,
                 ref b.HalfWidth, ref b.HalfHeight, ref b.HalfLength,
                 ref localOffsetB.X, ref localOffsetB.Y, ref localOffsetB.Z,
                 ref rB.X, ref rB.Y, ref rB.Z, ref rB.X,
                 out var depth, out localNormal.X, out localNormal.Y, out localNormal.Z);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterEdgeTestX");
             //b.Y
-            TestEdgeEdge(
+            ReportStage(stageReporter, "BepuBoxPairTesterBeforeEdgeTestY");
+            TestEdgeEdge(stageReporter, "EdgeY",
                 ref a.HalfWidth, ref a.HalfHeight, ref a.HalfLength,
                 ref b.HalfWidth, ref b.HalfHeight, ref b.HalfLength,
                 ref localOffsetB.X, ref localOffsetB.Y, ref localOffsetB.Z,
                 ref rB.X, ref rB.Y, ref rB.Z, ref rB.Y,
                 out var edgeYDepth, out var edgeYNX, out var edgeYNY, out var edgeYNZ);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterEdgeTestY");
             Select(ref depth, ref localNormal,
                 ref edgeYDepth, ref edgeYNX, ref edgeYNY, ref edgeYNZ);
             //b.Z
-            TestEdgeEdge(
+            ReportStage(stageReporter, "BepuBoxPairTesterBeforeEdgeTestZ");
+            TestEdgeEdge(stageReporter, "EdgeZ",
                 ref a.HalfWidth, ref a.HalfHeight, ref a.HalfLength,
                 ref b.HalfWidth, ref b.HalfHeight, ref b.HalfLength,
                 ref localOffsetB.X, ref localOffsetB.Y, ref localOffsetB.Z,
                 ref rB.X, ref rB.Y, ref rB.Z, ref rB.Z,
                 out var edgeZDepth, out var edgeZNX, out var edgeZNY, out var edgeZNZ);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterEdgeTestZ");
             Select(ref depth, ref localNormal,
                 ref edgeZDepth, ref edgeZNX, ref edgeZNY, ref edgeZNZ);
 
@@ -371,6 +445,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             Select(ref depth, ref localNormal, ref faceAYDepth, ref zero, ref one, ref zero);
             var faceAZDepth = a.HalfLength + b.HalfWidth * absRBX.Z + b.HalfHeight * absRBY.Z + b.HalfLength * absRBZ.Z - Vector.Abs(localOffsetB.Z);
             Select(ref depth, ref localNormal, ref faceAZDepth, ref zero, ref zero, ref one);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceAxesA");
 
             //Test face normals of B. Rows of A->B rotation.
             Matrix3x3Wide.TransformByTransposedWithoutOverlap(localOffsetB, rB, out var bLocalOffsetB);
@@ -380,10 +455,12 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             Select(ref depth, ref localNormal, ref faceBYDepth, ref rB.Y.X, ref rB.Y.Y, ref rB.Y.Z);
             var faceBZDepth = b.HalfLength + a.HalfWidth * absRBZ.X + a.HalfHeight * absRBZ.Y + a.HalfLength * absRBZ.Z - Vector.Abs(bLocalOffsetB.Z);
             Select(ref depth, ref localNormal, ref faceBZDepth, ref rB.Z.X, ref rB.Z.Y, ref rB.Z.Z);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceAxesB");
 
             var activeLanes = BundleIndexing.CreateMaskForCountInBundle(pairCount);
             var minimumDepth = -speculativeMargin;
             var allowContacts = Vector.BitwiseAnd(activeLanes, Vector.GreaterThanOrEqual(depth, minimumDepth));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterContactMask");
             if (Vector.EqualsAll(allowContacts, Vector<int>.Zero))
             {
                 manifold.Contact0Exists = default;
@@ -399,6 +476,7 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             localNormal.Y = Vector.ConditionalSelect(shouldNegateNormal, -localNormal.Y, localNormal.Y);
             localNormal.Z = Vector.ConditionalSelect(shouldNegateNormal, -localNormal.Z, localNormal.Z);
             Matrix3x3Wide.TransformWithoutOverlap(localNormal, worldRA, out manifold.Normal);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterWorldNormal");
 
             //Contact generation always assumes face-face clipping. Other forms of contact generation are just special cases of face-face, and since we pay
             //for all code paths, there's no point in handling them separately.
@@ -411,21 +489,26 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             Vector3Wide.Dot(manifold.Normal, worldRA.X, out var axDot);
             Vector3Wide.Dot(manifold.Normal, worldRA.Y, out var ayDot);
             Vector3Wide.Dot(manifold.Normal, worldRA.Z, out var azDot);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalDotsA");
             var absAXDot = Vector.Abs(axDot);
             var absAYDot = Vector.Abs(ayDot);
             var absAZDot = Vector.Abs(azDot);
             var maxADot = Vector.Max(absAXDot, Vector.Max(absAYDot, absAZDot));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalMagnitudesA");
             var useAX = Vector.Equals(maxADot, absAXDot);
             var useAY = Vector.AndNot(Vector.Equals(maxADot, absAYDot), useAX);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalAxisMaskA");
             Vector3Wide.ConditionalSelect(useAX, worldRA.X, worldRA.Z, out var normalA);
             Vector3Wide.ConditionalSelect(useAY, worldRA.Y, normalA, out normalA);
             Vector3Wide.ConditionalSelect(useAX, worldRA.Z, worldRA.Y, out var tangentAX);
             Vector3Wide.ConditionalSelect(useAY, worldRA.X, tangentAX, out tangentAX);
             Vector3Wide.ConditionalSelect(useAX, worldRA.Y, worldRA.X, out var tangentAY);
             Vector3Wide.ConditionalSelect(useAY, worldRA.Z, tangentAY, out tangentAY);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalBasisA");
             var halfSpanAX = Vector.ConditionalSelect(useAX, a.HalfLength, Vector.ConditionalSelect(useAY, a.HalfWidth, a.HalfHeight));
             var halfSpanAY = Vector.ConditionalSelect(useAX, a.HalfHeight, Vector.ConditionalSelect(useAY, a.HalfLength, a.HalfWidth));
             var halfSpanAZ = Vector.ConditionalSelect(useAX, a.HalfWidth, Vector.ConditionalSelect(useAY, a.HalfHeight, a.HalfLength));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceSpansA");
             //We'll construct vertex feature ids from axis ids. 
             //Vertex ids will be constructed by setting or not setting the relevant bit for each axis.
             var localXId = new Vector<int>(1);
@@ -434,30 +517,37 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             var axisIdAX = Vector.ConditionalSelect(useAX, localZId, Vector.ConditionalSelect(useAY, localXId, localYId));
             var axisIdAY = Vector.ConditionalSelect(useAX, localYId, Vector.ConditionalSelect(useAY, localZId, localXId));
             var axisIdAZ = Vector.ConditionalSelect(useAX, localXId, Vector.ConditionalSelect(useAY, localYId, localZId));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceAxisIdsA");
 
             Vector3Wide.Dot(manifold.Normal, worldRB.X, out var bxDot);
             Vector3Wide.Dot(manifold.Normal, worldRB.Y, out var byDot);
             Vector3Wide.Dot(manifold.Normal, worldRB.Z, out var bzDot);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalDotsB");
             var absBXDot = Vector.Abs(bxDot);
             var absBYDot = Vector.Abs(byDot);
             var absBZDot = Vector.Abs(bzDot);
             var maxBDot = Vector.Max(absBXDot, Vector.Max(absBYDot, absBZDot));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalMagnitudesB");
             var useBX = Vector.Equals(maxBDot, absBXDot);
             var useBY = Vector.AndNot(Vector.Equals(maxBDot, absBYDot), useBX);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalAxisMaskB");
             Vector3Wide.ConditionalSelect(useBX, worldRB.X, worldRB.Z, out var normalB);
             Vector3Wide.ConditionalSelect(useBY, worldRB.Y, normalB, out normalB);
             Vector3Wide.ConditionalSelect(useBX, worldRB.Z, worldRB.Y, out var tangentBX);
             Vector3Wide.ConditionalSelect(useBY, worldRB.X, tangentBX, out tangentBX);
             Vector3Wide.ConditionalSelect(useBX, worldRB.Y, worldRB.X, out var tangentBY);
             Vector3Wide.ConditionalSelect(useBY, worldRB.Z, tangentBY, out tangentBY);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalBasisB");
             var halfSpanBX = Vector.ConditionalSelect(useBX, b.HalfLength, Vector.ConditionalSelect(useBY, b.HalfWidth, b.HalfHeight));
             var halfSpanBY = Vector.ConditionalSelect(useBX, b.HalfHeight, Vector.ConditionalSelect(useBY, b.HalfLength, b.HalfWidth));
             var halfSpanBZ = Vector.ConditionalSelect(useBX, b.HalfWidth, Vector.ConditionalSelect(useBY, b.HalfHeight, b.HalfLength));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceSpansB");
             //We'll construct edge feature ids from axis ids. 
             //Edge ids will be 6 bits total, representing 3 possible states (-1, 0, 1) for each of the 3 axes. Multiply the axis id by 1, 2, or 3 to get the edge id contribution for the axis.
             var axisIdBX = Vector.ConditionalSelect(useBX, localZId, Vector.ConditionalSelect(useBY, localXId, localYId));
             var axisIdBY = Vector.ConditionalSelect(useBX, localYId, Vector.ConditionalSelect(useBY, localZId, localXId));
             var axisIdBZ = Vector.ConditionalSelect(useBX, localXId, Vector.ConditionalSelect(useBY, localYId, localZId));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceAxisIdsB");
 
             //Calibrate normalB to face toward A, and normalA to face toward B.
             Vector3Wide.Dot(normalA, manifold.Normal, out var calibrationDotA);
@@ -465,22 +555,26 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             normalA.X = Vector.ConditionalSelect(shouldNegateNormalA, -normalA.X, normalA.X);
             normalA.Y = Vector.ConditionalSelect(shouldNegateNormalA, -normalA.Y, normalA.Y);
             normalA.Z = Vector.ConditionalSelect(shouldNegateNormalA, -normalA.Z, normalA.Z);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalCalibrationA");
             Vector3Wide.Dot(normalB, manifold.Normal, out var calibrationDotB);
             var shouldNegateNormalB = Vector.LessThan(calibrationDotB, Vector<float>.Zero);
             normalB.X = Vector.ConditionalSelect(shouldNegateNormalB, -normalB.X, normalB.X);
             normalB.Y = Vector.ConditionalSelect(shouldNegateNormalB, -normalB.Y, normalB.Y);
             normalB.Z = Vector.ConditionalSelect(shouldNegateNormalB, -normalB.Z, normalB.Z);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceNormalCalibrationB");
 
             //Note that we only allocate up to 8 candidates. It is not possible for this process to generate more than 8 (unless there are numerical problems, which we guard against).
             int byteCount = Unsafe.SizeOf<ManifoldCandidate>() * 8;
             var buffer = stackalloc byte[byteCount];
             ref var candidates = ref Unsafe.As<byte, ManifoldCandidate>(ref *buffer);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterCandidateStackAllocation");
 
             //Face B edges against face A bound planes
             Vector3Wide.Scale(normalA, halfSpanAZ, out var faceCenterA);
             Vector3Wide.Scale(normalB, halfSpanBZ, out var faceCenterB);
             Vector3Wide.Add(faceCenterB, offsetB, out faceCenterB);
             Vector3Wide.Subtract(faceCenterA, faceCenterB, out var faceCenterBToFaceCenterA);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceCenters");
             Vector3Wide.Scale(tangentAY, halfSpanAY, out var edgeOffsetAX);
             Vector3Wide.Scale(tangentAX, halfSpanAX, out var edgeOffsetAY);
 
@@ -488,8 +582,10 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             Vector3Wide.Subtract(vertexA0, edgeOffsetAY, out var vertexA00);
             Vector3Wide.Add(faceCenterA, edgeOffsetAX, out var vertexA1);
             Vector3Wide.Add(vertexA1, edgeOffsetAY, out var vertexA11);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterFaceAEdgeOffsets");
 
             var epsilonScale = Vector.Min(Vector.Max(halfSpanAX, Vector.Max(halfSpanAY, halfSpanAZ)), Vector.Max(halfSpanBX, Vector.Max(halfSpanBY, halfSpanBZ)));
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterEpsilonScale");
             var twiceAxisIdBX = axisIdBX * new Vector<int>(2);
             var three = new Vector<int>(3);
             var axisZEdgeIdContribution = axisIdBZ * three;
@@ -499,8 +595,10 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             var edgeIdBY0 = axisIdBX + twiceAxisIdBY + axisZEdgeIdContribution;
             var edgeIdBY1 = axisIdBX * three + twiceAxisIdBY + axisZEdgeIdContribution;
             var candidateCount = Vector<int>.Zero;
-            CreateEdgeContacts(faceCenterB, tangentBX, tangentBY, halfSpanBX, halfSpanBY, vertexA00, vertexA11, tangentAX, tangentAY, manifold.Normal,
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterEdgeIds");
+            CreateEdgeContacts(stageReporter, faceCenterB, tangentBX, tangentBY, halfSpanBX, halfSpanBY, vertexA00, vertexA11, tangentAX, tangentAY, manifold.Normal,
                 edgeIdBX0, edgeIdBX1, edgeIdBY0, edgeIdBY1, epsilonScale, ref candidates, ref candidateCount, pairCount, allowContacts);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterEdgeContacts");
 
             //Face A vertices
             //Vertex ids only have two states per axis, so scale id by 0 or 1 before adding. Equivalent to conditional or.          
@@ -513,16 +611,19 @@ namespace BepuPhysics.CollisionDetection.CollisionTasks
             var vertexId11 = -(axisIdAZ + axisIdAX + axisIdAY);
             AddBoxAVertices(faceCenterB, tangentBX, tangentBY, halfSpanBX, halfSpanBY, normalB, manifold.Normal,
                 vertexA00, vertexA01, vertexA10, vertexA11, vertexId00, vertexId01, vertexId10, vertexId11, ref candidates, ref candidateCount, pairCount, allowContacts);
+            ReportStage(stageReporter, "BepuBoxPairTesterBeforeCandidateReduction");
 
             ManifoldCandidateHelper.Reduce(ref candidates, candidateCount, 8, normalA, new Vector<float>(-1f) / Vector.Abs(calibrationDotA), faceCenterBToFaceCenterA, tangentBX, tangentBY, epsilonScale, minimumDepth, pairCount,
                 out var contact0, out var contact1, out var contact2, out var contact3,
                 out manifold.Contact0Exists, out manifold.Contact1Exists, out manifold.Contact2Exists, out manifold.Contact3Exists);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterCandidateReduction");
 
             //Transform the contacts into the manifold.
             TransformContactToManifold(ref contact0, ref faceCenterB, ref tangentBX, ref tangentBY, ref manifold.OffsetA0, ref manifold.Depth0, ref manifold.FeatureId0);
             TransformContactToManifold(ref contact1, ref faceCenterB, ref tangentBX, ref tangentBY, ref manifold.OffsetA1, ref manifold.Depth1, ref manifold.FeatureId1);
             TransformContactToManifold(ref contact2, ref faceCenterB, ref tangentBX, ref tangentBY, ref manifold.OffsetA2, ref manifold.Depth2, ref manifold.FeatureId2);
             TransformContactToManifold(ref contact3, ref faceCenterB, ref tangentBX, ref tangentBY, ref manifold.OffsetA3, ref manifold.Depth3, ref manifold.FeatureId3);
+            ReportStage(stageReporter, "BepuBoxPairTesterAfterContactTransforms");
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

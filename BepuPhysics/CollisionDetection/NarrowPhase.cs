@@ -80,6 +80,11 @@ namespace BepuPhysics.CollisionDetection
 
     public unsafe abstract class NarrowPhase
     {
+        /// <summary>
+        /// Fires when the narrow phase reaches an internal overlap or contact-batch stage so host diagnostics can localize native contact-generation failures.
+        /// </summary>
+        public event Action<string> StageReported;
+
         public Simulation Simulation;
         public BufferPool Pool;
         public Bodies Bodies;
@@ -96,6 +101,16 @@ namespace BepuPhysics.CollisionDetection
         internal float timestepDuration;
 
         internal ContactConstraintAccessor[] contactConstraintAccessors;
+
+        /// <summary>
+        /// Reports one narrow-phase internal transition to any host diagnostic subscriber.
+        /// </summary>
+        /// <param name="stageName">Stable name of the completed or imminent narrow-phase operation.</param>
+        protected void ReportStage(string stageName)
+        {
+            StageReported?.Invoke(stageName);
+        }
+
         public void RegisterContactConstraintAccessor(ContactConstraintAccessor contactConstraintAccessor)
         {
             var id = contactConstraintAccessor.ConstraintTypeId;
@@ -340,7 +355,7 @@ namespace BepuPhysics.CollisionDetection
             {
                 PendingSetAwakenings = new QuickList<int>(16, pool);
                 Batcher = new CollisionBatcher<CollisionCallbacks>(pool, narrowPhase.Shapes, narrowPhase.CollisionTaskRegistry, narrowPhase.timestepDuration,
-                    new CollisionCallbacks(workerIndex, pool, narrowPhase));
+                    new CollisionCallbacks(workerIndex, pool, narrowPhase), narrowPhase.ReportStage);
                 PendingConstraints = new PendingConstraintAddCache(pool);
             }
         }
@@ -398,14 +413,19 @@ namespace BepuPhysics.CollisionDetection
 
         public void HandleOverlap(int workerIndex, CollidableReference a, CollidableReference b)
         {
+            ReportStage("BepuNarrowPhaseHandleOverlapEnter");
             Debug.Assert(a.Packed != b.Packed, "Excuse me, broad phase, but an object cannot collide with itself!");
             SortCollidableReferencesForPair(a, b, out var aMobility, out var bMobility, out a, out b);
+            ReportStage("BepuNarrowPhaseHandleOverlapAfterSort");
             Debug.Assert(aMobility != CollidableMobility.Static || bMobility != CollidableMobility.Static, "Broad phase should not be able to generate static-static pairs.");
 
             //Two static pairs are impossible (the broad phase doesn't test stuff in the static/sleeping tree against itself), and any pair with a static will put the body in slot A.
             var twoBodies = bMobility != CollidableMobility.Static;
+            ReportStage("BepuNarrowPhaseHandleOverlapBeforeBodyLocationA");
             ref var bodyLocationA = ref Bodies.HandleToLocation[a.BodyHandle.Value];
+            ReportStage("BepuNarrowPhaseHandleOverlapAfterBodyLocationA");
             ref var setA = ref Bodies.Sets[bodyLocationA.SetIndex];
+            ReportStage("BepuNarrowPhaseHandleOverlapAfterSetA");
             ref var stateA = ref setA.DynamicsState[bodyLocationA.Index];
             ref var collidableA = ref setA.Collidables[bodyLocationA.Index];
             float speculativeMarginB;
@@ -431,9 +451,13 @@ namespace BepuPhysics.CollisionDetection
             var speculativeMargin = collidableA.SpeculativeMargin + speculativeMarginB;
 
             //By precalculating the speculative margin, we give the narrow phase callbacks the option of modifying it.
+            ReportStage("BepuNarrowPhaseHandleOverlapBeforeAllowContactGeneration");
             if (!Callbacks.AllowContactGeneration(workerIndex, a, b, ref speculativeMargin))
                 return;
+            ReportStage("BepuNarrowPhaseHandleOverlapAfterAllowContactGeneration");
+            ReportStage("BepuNarrowPhaseHandleOverlapBeforeOverlapWorker");
             ref var overlapWorker = ref overlapWorkers[workerIndex];
+            ReportStage("BepuNarrowPhaseHandleOverlapAfterOverlapWorker");
             var pair = new CollidablePair(a, b);
             if (twoBodies)
             {
@@ -462,7 +486,10 @@ namespace BepuPhysics.CollisionDetection
 
                 //TODO: Ideally, the compiler would see this and optimize away the relevant math in AddBatchEntries. That's a longshot, though. May want to abuse some generics to force it.
                 var zeroVelocity = default(BodyVelocity);
+                ReportStage("BepuNarrowPhaseHandleOverlapBeforeStaticDirectReference");
                 ref var staticB = ref Statics.GetDirectReference(b.StaticHandle);
+                ReportStage("BepuNarrowPhaseHandleOverlapAfterStaticDirectReference");
+                ReportStage("BepuNarrowPhaseHandleOverlapBeforeStaticAddBatchEntries");
                 AddBatchEntries(workerIndex, ref overlapWorker, ref pair,
                     ref collidableA.Continuity, ref staticB.Continuity,
                     collidableA.Shape, staticB.Shape,
@@ -470,6 +497,7 @@ namespace BepuPhysics.CollisionDetection
                     speculativeMargin,
                     ref stateA.Motion.Pose, ref staticB.Pose,
                     ref stateA.Motion.Velocity, ref zeroVelocity);
+                ReportStage("BepuNarrowPhaseHandleOverlapAfterStaticAddBatchEntries");
             }
 
         }
@@ -497,6 +525,7 @@ namespace BepuPhysics.CollisionDetection
             ref RigidPose poseA, ref RigidPose poseB,
             ref BodyVelocity velocityA, ref BodyVelocity velocityB)
         {
+            ReportStage("BepuNarrowPhaseAddBatchEnter");
             Debug.Assert(pair.A.Packed != pair.B.Packed);
             var allowExpansion = continuityA.AllowExpansionBeyondSpeculativeMargin | continuityB.AllowExpansionBeyondSpeculativeMargin;
             //Note that we pick float.MaxValue for the maximum bounds expansion passive-involving pairs.
@@ -504,6 +533,7 @@ namespace BepuPhysics.CollisionDetection
             //and the need to compute a tighter maximum bound. That's not incredibly expensive, but it does add up. For now, we use the looser bound under the assumption
             //that the vast majority of pairs won't benefit from the tighter bound.
             var maximumExpansion = allowExpansion ? float.MaxValue : speculativeMargin;
+            ReportStage("BepuNarrowPhaseAddBatchAfterExpansion");
 
             //Create a continuation for the pair given the CCD state.
             //Note that we never create 'unilateral' CCD pairs. That is, if either collidable in a pair enables a CCD feature, we just act like both are using it.
@@ -585,11 +615,15 @@ namespace BepuPhysics.CollisionDetection
             if (!continuationIndex.Exists)
             {
                 //No CCD continuation was created, so create a discrete one.
+                ReportStage("BepuNarrowPhaseAddBatchBeforeDiscreteContinuation");
                 continuationIndex = overlapWorker.Batcher.Callbacks.AddDiscrete(ref pair);
+                ReportStage("BepuNarrowPhaseAddBatchAfterDiscreteContinuation");
+                ReportStage("BepuNarrowPhaseAddBatchBeforeDiscreteBatcherAdd");
                 overlapWorker.Batcher.Add(
                    shapeA, shapeB,
                    poseB.Position - poseA.Position, poseA.Orientation, poseB.Orientation, velocityA, velocityB,
                    speculativeMargin, maximumExpansion, new PairContinuation((int)continuationIndex.Packed));
+                ReportStage("BepuNarrowPhaseAddBatchAfterDiscreteBatcherAdd");
             }
         }
     }

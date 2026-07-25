@@ -105,6 +105,29 @@ namespace BepuPhysics
         }
 
         /// <summary>
+        /// Gets the allocated number of body-property slots, including unused handle positions reserved by the pool.
+        /// </summary>
+        public int BodyDataLength
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                return bodyData.Length;
+            }
+        }
+
+        /// <summary>
+        /// Determines whether a body handle currently resolves to an active body in the associated simulation.
+        /// </summary>
+        /// <param name="bodyHandle">Body handle to validate.</param>
+        /// <returns><see langword="true"/> when the simulation owns the handle; otherwise <see langword="false"/>.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool BodyExists(BodyHandle bodyHandle)
+        {
+            return simulation.Bodies.BodyExists(bodyHandle);
+        }
+
+        /// <summary>
         /// Ensures there is space for a given body handle and returns a reference to the used memory.
         /// </summary>
         /// <param name="bodyHandle">Body handle to allocate for.</param>
