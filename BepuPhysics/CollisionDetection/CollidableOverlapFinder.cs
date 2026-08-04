@@ -5,6 +5,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using helengine;
 using BepuPhysics.Trees;
 using BepuUtilities.TaskScheduling;
 
@@ -65,7 +66,9 @@ namespace BepuPhysics.CollisionDetection
         IntertreeOverlapHandler[] intertreeHandlers;
         Action<int> workerAction;
         int nextJobIndex;
-        public CollidableOverlapFinder(NarrowPhase<TCallbacks> narrowPhase, BroadPhase broadPhase)
+        public CollidableOverlapFinder(
+            [NativeRetainsBorrow] NarrowPhase<TCallbacks> narrowPhase,
+            [NativeRetainsBorrow] BroadPhase broadPhase)
         {
             selfTestContext = new Tree.MultithreadedSelfTest<SelfOverlapHandler>(narrowPhase.Pool);
             intertreeTestContext = new Tree.MultithreadedIntertreeTest<IntertreeOverlapHandler>(narrowPhase.Pool);

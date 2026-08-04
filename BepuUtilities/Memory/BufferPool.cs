@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using helengine;
 
 namespace BepuUtilities.Memory
 {
@@ -14,6 +15,7 @@ namespace BepuUtilities.Memory
     {
         unsafe struct PowerPool
         {
+            [NativeOwnedMember]
             public byte*[] Blocks;
             /// <summary>
             /// Pool of slots available to this power level.
@@ -65,7 +67,18 @@ namespace BepuUtilities.Memory
             {
                 var newBlocks = new byte*[newSize];
                 Array.Copy(Blocks, newBlocks, Blocks.Length);
+                NativeOwnership.Delete(Blocks);
                 Blocks = newBlocks;
+            }
+
+            /// <summary>
+            /// Releases native blocks and the pointer array retained by this power-level pool.
+            /// </summary>
+            public void Dispose()
+            {
+                Clear();
+                NativeOwnership.Delete(Blocks);
+                Blocks = null;
             }
 
             void AllocateBlock(int blockIndex)
@@ -210,6 +223,7 @@ namespace BepuUtilities.Memory
 
         }
 
+        [NativeOwnedMember]
         private PowerPool[] pools = new PowerPool[SpanHelper.MaximumSpanSizePower + 1];
         private int minimumBlockSize;
 
@@ -422,7 +436,17 @@ namespace BepuUtilities.Memory
         /// </summary>
         void IDisposable.Dispose()
         {
-            Clear();
+            if (pools != null)
+            {
+                for (int i = 0; i < pools.Length; ++i)
+                {
+                    pools[i].Dispose();
+                }
+
+            }
+
+            NativeOwnership.Delete(pools);
+            pools = null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

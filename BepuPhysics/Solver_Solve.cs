@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
+using helengine;
 using System.Runtime.Intrinsics.X86;
 using System.Numerics;
 using System.Runtime.Intrinsics;
@@ -1074,13 +1075,6 @@ namespace BepuPhysics
         int nextConstraintIntegrationResponsibilityJobIndex;
         QuickList<(int batch, int typeBatch, int start, int end)> integrationResponsibilityPrepassJobs;
         Buffer<bool> jobAlignedIntegrationResponsibilities;
-        IndexSet[] bodiesFirstObservedInBatches;
-        IndexSet[][][] integrationFlags;
-        /// <summary>
-        /// Caches a single bool for whether type batches within batches have constraints with any integration responsibilities.
-        /// Type batches with no integration responsibilities can use a codepath with no integration checks at all.
-        /// </summary>
-        bool[][] coarseBatchIntegrationResponsibilities;
         Action<int> constraintIntegrationResponsibilitiesWorker;
         IndexSet mergedConstrainedBodyHandles;
 
@@ -1088,12 +1082,16 @@ namespace BepuPhysics
         {
             if (integrationFlags == null || integrationFlags.Length != ActiveSet.Batches.Count)
             {
+                ReleaseIntegrationFlagItems();
+                NativeOwnership.Delete(integrationFlags);
                 integrationFlags = new IndexSet[ActiveSet.Batches.Count][][];
             }
             integrationFlags[0] = default;
 
             if (coarseBatchIntegrationResponsibilities == null || coarseBatchIntegrationResponsibilities.Length != ActiveSet.Batches.Count)
             {
+                ReleaseCoarseBatchIntegrationResponsibilityItems();
+                NativeOwnership.Delete(coarseBatchIntegrationResponsibilities);
                 coarseBatchIntegrationResponsibilities = new bool[ActiveSet.Batches.Count][];
             }
 
@@ -1103,15 +1101,17 @@ namespace BepuPhysics
                 var flagsForBatch = integrationFlags[batchIndex];
                 if (flagsForBatch == null || flagsForBatch.Length != batch.TypeBatches.Count)
                 {
-                    flagsForBatch = new IndexSet[batch.TypeBatches.Count][];
-                    integrationFlags[batchIndex] = flagsForBatch;
+                    ReleaseIntegrationFlagsBatch(flagsForBatch);
+                    integrationFlags[batchIndex] = new IndexSet[batch.TypeBatches.Count][];
+                    flagsForBatch = integrationFlags[batchIndex];
                 }
 
                 var coarseFlagsForBatch = coarseBatchIntegrationResponsibilities[batchIndex];
                 if (coarseFlagsForBatch == null || coarseFlagsForBatch.Length != batch.TypeBatches.Count)
                 {
-                    coarseFlagsForBatch = new bool[batch.TypeBatches.Count];
-                    coarseBatchIntegrationResponsibilities[batchIndex] = coarseFlagsForBatch;
+                    NativeOwnership.Delete(coarseBatchIntegrationResponsibilities[batchIndex]);
+                    coarseBatchIntegrationResponsibilities[batchIndex] = new bool[batch.TypeBatches.Count];
+                    coarseFlagsForBatch = coarseBatchIntegrationResponsibilities[batchIndex];
                 }
 
                 for (int typeBatchIndex = 0; typeBatchIndex < flagsForBatch.Length; ++typeBatchIndex)
@@ -1121,8 +1121,9 @@ namespace BepuPhysics
                     var flagsForTypeBatch = flagsForBatch[typeBatchIndex];
                     if (flagsForTypeBatch == null || flagsForTypeBatch.Length != bodiesPerConstraint)
                     {
-                        flagsForTypeBatch = new IndexSet[bodiesPerConstraint];
-                        flagsForBatch[typeBatchIndex] = flagsForTypeBatch;
+                        NativeOwnership.Delete(flagsForBatch[typeBatchIndex]);
+                        flagsForBatch[typeBatchIndex] = new IndexSet[bodiesPerConstraint];
+                        flagsForTypeBatch = flagsForBatch[typeBatchIndex];
                     }
 
                     coarseFlagsForBatch[typeBatchIndex] = false;
@@ -1140,6 +1141,7 @@ namespace BepuPhysics
         {
             if (bodiesFirstObservedInBatches == null || bodiesFirstObservedInBatches.Length != batchReferencedHandles.Count)
             {
+                NativeOwnership.Delete(bodiesFirstObservedInBatches);
                 bodiesFirstObservedInBatches = new IndexSet[batchReferencedHandles.Count];
             }
             bodiesFirstObservedInBatches[0] = default;

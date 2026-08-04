@@ -6,6 +6,7 @@ using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using BepuPhysics.Trees;
+using helengine;
 
 #if !DEBUG
 [module: SkipLocalsInit]
@@ -53,6 +54,7 @@ public partial class Simulation : IDisposable
     /// <summary>
     /// Gets the integrator used to update velocities and poses within the simulation.
     /// </summary>
+    [NativeOwnedMember]
     public IPoseIntegrator PoseIntegrator { get; private set; }
     /// <summary>
     /// Gets the broad phase used by the simulation. Supports accelerated ray and volume queries.
@@ -65,6 +67,7 @@ public partial class Simulation : IDisposable
     /// <summary>
     /// Gets the system used to identify contacts in colliding pairs of shapes and to update contact constraint data.
     /// </summary>
+    [NativeOwnedMember]
     public NarrowPhase NarrowPhase { get; private set; }
 
     SimulationProfiler profiler = new(13);
@@ -153,7 +156,8 @@ public partial class Simulation : IDisposable
         simulation.Solver = new Solver<TPoseIntegratorCallbacks>(simulation.Bodies, simulation.BufferPool, solveDescription,
             initialCapacity: initialAllocationSizes.Value.Constraints,
             initialIslandCapacity: initialAllocationSizes.Value.Islands,
-            minimumCapacityPerTypeBatch: initialAllocationSizes.Value.ConstraintsPerTypeBatch, poseIntegrator);
+            minimumCapacityPerTypeBatch: initialAllocationSizes.Value.ConstraintsPerTypeBatch,
+            (PoseIntegrator<TPoseIntegratorCallbacks>)simulation.PoseIntegrator);
         simulation.constraintRemover = new ConstraintRemover(simulation.BufferPool, simulation.Bodies, simulation.Solver);
         simulation.Sleeper = new IslandSleeper(simulation.Bodies, simulation.Solver, simulation.BroadPhase, simulation.constraintRemover, simulation.BufferPool);
         simulation.Awakener = new IslandAwakener(simulation.Bodies, simulation.Statics, simulation.Solver, simulation.BroadPhase, simulation.Sleeper, bufferPool);
@@ -167,15 +171,15 @@ public partial class Simulation : IDisposable
             DefaultTypes.CreateDefaultCollisionTaskRegistry(), DefaultTypes.CreateDefaultSweepTaskRegistry(),
             narrowPhaseCallbacks, initialAllocationSizes.Value.Islands + 1);
         DefaultTypes.RegisterDefaults(simulation.Solver, narrowPhase);
-        simulation.NarrowPhase = narrowPhase;
         simulation.Sleeper.pairCache = narrowPhase.PairCache;
         simulation.Awakener.pairCache = narrowPhase.PairCache;
         simulation.Solver.pairCache = narrowPhase.PairCache;
         simulation.BroadPhaseOverlapFinder = new CollidableOverlapFinder<TNarrowPhaseCallbacks>(narrowPhase, simulation.BroadPhase);
 
         //We defer initialization until after all the other simulation bits are constructed.
-        poseIntegrator.Callbacks.Initialize(simulation);
+        ((PoseIntegrator<TPoseIntegratorCallbacks>)simulation.PoseIntegrator).Callbacks.Initialize(simulation);
         narrowPhase.Callbacks.Initialize(simulation);
+        simulation.NarrowPhase = narrowPhase;
 
         return simulation;
     }
@@ -423,6 +427,10 @@ public partial class Simulation : IDisposable
         Solver.Dispose();
         BroadPhase.Dispose();
         NarrowPhase.Dispose();
+        NativeOwnership.Delete(NarrowPhase);
+        NarrowPhase = null;
+        NativeOwnership.Delete(PoseIntegrator);
+        PoseIntegrator = null;
         Bodies.Dispose();
         Statics.Dispose();
         Shapes.Dispose();

@@ -9,6 +9,7 @@ using BepuUtilities;
 using System.Runtime.InteropServices;
 using System.Numerics;
 using System.Threading;
+using helengine;
 
 namespace BepuPhysics
 {
@@ -66,6 +67,24 @@ namespace BepuPhysics
         /// Set of body handles associated with constrained kinematic bodies. These will be integrated during substepping.
         /// </summary>
         public QuickSet<int, PrimitiveComparer<int>> ConstrainedKinematicHandles;
+
+        /// <summary>
+        /// Tracks bodies first observed by each solver batch while integration responsibilities are prepared.
+        /// </summary>
+        [NativeOwnedMember]
+        protected IndexSet[] bodiesFirstObservedInBatches;
+
+        /// <summary>
+        /// Stores per-batch, per-type-batch integration responsibility flags retained between solver steps.
+        /// </summary>
+        [NativeOwnedMember]
+        protected IndexSet[][][] integrationFlags;
+
+        /// <summary>
+        /// Caches whether each type batch contains any constraint integration responsibilities.
+        /// </summary>
+        [NativeOwnedMember]
+        protected bool[][] coarseBatchIntegrationResponsibilities;
 
         protected int substepCount;
         /// <summary>
@@ -2010,6 +2029,51 @@ namespace BepuPhysics
         }
 
         /// <summary>
+        /// Releases every jagged integration-flag container retained by the solver.
+        /// </summary>
+        protected void ReleaseIntegrationFlagItems()
+        {
+            if (integrationFlags != null)
+            {
+                for (int batchIndex = 0; batchIndex < integrationFlags.Length; ++batchIndex)
+                {
+                    ReleaseIntegrationFlagsBatch(integrationFlags[batchIndex]);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Releases every type-batch array contained by one solver batch.
+        /// </summary>
+        /// <param name="flagsForBatch">Batch container whose nested-array cleanup responsibility transfers to this method.</param>
+        protected static void ReleaseIntegrationFlagsBatch([NativeTakesOwnership] IndexSet[][] flagsForBatch)
+        {
+            if (flagsForBatch != null)
+            {
+                for (int typeBatchIndex = 0; typeBatchIndex < flagsForBatch.Length; ++typeBatchIndex)
+                {
+                    NativeOwnership.Delete(flagsForBatch[typeBatchIndex]);
+                }
+            }
+
+            NativeOwnership.Delete(flagsForBatch);
+        }
+
+        /// <summary>
+        /// Releases every coarse integration-responsibility container retained by the solver.
+        /// </summary>
+        protected void ReleaseCoarseBatchIntegrationResponsibilityItems()
+        {
+            if (coarseBatchIntegrationResponsibilities != null)
+            {
+                for (int batchIndex = 0; batchIndex < coarseBatchIntegrationResponsibilities.Length; ++batchIndex)
+                {
+                    NativeOwnership.Delete(coarseBatchIntegrationResponsibilities[batchIndex]);
+                }
+            }
+        }
+
+        /// <summary>
         /// Returns all pool-retrieved resources to the pool.
         /// </summary>
         /// <remarks>
@@ -2031,6 +2095,14 @@ namespace BepuPhysics
             pool.Return(ref Sets);
             pool.Return(ref HandleToConstraint);
             HandlePool.Dispose(pool);
+            NativeOwnership.Delete(bodiesFirstObservedInBatches);
+            bodiesFirstObservedInBatches = null;
+            ReleaseIntegrationFlagItems();
+            NativeOwnership.Delete(integrationFlags);
+            integrationFlags = null;
+            ReleaseCoarseBatchIntegrationResponsibilityItems();
+            NativeOwnership.Delete(coarseBatchIntegrationResponsibilities);
+            coarseBatchIntegrationResponsibilities = null;
         }
     }
 }

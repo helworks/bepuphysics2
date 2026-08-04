@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using BepuUtilities.Collections;
 using BepuPhysics.Constraints;
+using helengine;
 
 namespace BepuPhysics
 {
@@ -65,7 +66,7 @@ namespace BepuPhysics
         /// Performs any required initialization logic after the Simulation instance has been constructed.
         /// </summary>
         /// <param name="simulation">Simulation that owns these callbacks.</param>
-        void Initialize(Simulation simulation);
+        void Initialize([NativeRetainsBorrow] Simulation simulation);
 
         /// <summary>
         /// Callback invoked ahead of dispatches that may call into <see cref="IntegrateVelocity"/>.

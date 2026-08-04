@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System;
 using System.Diagnostics;
 using System.Threading;
+using helengine;
 using BepuUtilities;
 using BepuPhysics.Constraints.Contact;
 
@@ -362,7 +363,7 @@ namespace BepuPhysics.CollisionDetection
 
         internal OverlapWorker[] overlapWorkers;
 
-        public NarrowPhase(Simulation simulation, CollisionTaskRegistry collisionTaskRegistry, SweepTaskRegistry sweepTaskRegistry, TCallbacks callbacks,
+        public NarrowPhase([NativeRetainsBorrow] Simulation simulation, CollisionTaskRegistry collisionTaskRegistry, SweepTaskRegistry sweepTaskRegistry, TCallbacks callbacks,
              int initialSetCapacity, int minimumMappingSize = 2048, int minimumPendingSize = 128)
             : base()
         {

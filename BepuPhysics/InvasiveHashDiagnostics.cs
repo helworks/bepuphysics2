@@ -1,6 +1,7 @@
 ﻿using BepuUtilities.Collections;
 using System;
 using System.Runtime.CompilerServices;
+using helengine;
 
 namespace BepuPhysics
 {
@@ -60,17 +61,20 @@ namespace BepuPhysics
     /// Helper diagnostics class for monitoring internal state determinism across runs.
     /// Typically used by inserting tests into engine internals.
     /// </summary>
-    public class InvasiveHashDiagnostics
+    public class InvasiveHashDiagnostics : IDisposable
     {
         /// <summary>
         /// This is meant as an internal diagnostic utility, so hardcoding some things is totally fine.
         /// </summary>
         const int HashTypeCount = 46;
+        [NativeOwnedMember]
         public static InvasiveHashDiagnostics Instance;
         public static void Initialize(int runCount, int hashCapacityPerType)
         {
-            var instance = new InvasiveHashDiagnostics();
-            instance.Hashes = new int[runCount][][];
+            var instance = new InvasiveHashDiagnostics
+            {
+                Hashes = new int[runCount][][]
+            };
             for (int runIndex = 0; runIndex < runCount; ++runIndex)
             {
                 instance.Hashes[runIndex] = new int[HashTypeCount][];
@@ -79,12 +83,40 @@ namespace BepuPhysics
                     instance.Hashes[runIndex][hashTypeIndex] = new int[hashCapacityPerType];
                 }
             }
+            NativeOwnership.DisposeAndDelete(Instance);
             Instance = instance;
         }
 
         public int CurrentRunIndex;
         public int CurrentHashIndex;
+        [NativeOwnedMember]
         public int[][][] Hashes;
+
+        /// <summary>
+        /// Releases every hash buffer and jagged-array container owned by this diagnostic instance.
+        /// </summary>
+        public void Dispose()
+        {
+            if (Hashes != null)
+            {
+                for (int runIndex = 0; runIndex < Hashes.Length; ++runIndex)
+                {
+                    if (Hashes[runIndex] != null)
+                    {
+                        for (int hashTypeIndex = 0; hashTypeIndex < Hashes[runIndex].Length; ++hashTypeIndex)
+                        {
+                            NativeOwnership.Delete(Hashes[runIndex][hashTypeIndex]);
+                        }
+
+                        NativeOwnership.Delete(Hashes[runIndex]);
+                    }
+                }
+
+            }
+
+            NativeOwnership.Delete(Hashes);
+            Hashes = null;
+        }
 
         public bool TypeIsActive(HashDiagnosticType hashType)
         {

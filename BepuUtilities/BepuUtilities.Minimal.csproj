@@ -6,7 +6,11 @@
     <Configurations>Debug;Release</Configurations>
     <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
     <NoWarn>1573;1591</NoWarn>
-  </PropertyGroup>
+</PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\helengine.nativeownership\helengine.nativeownership.csproj" />
+  </ItemGroup>
 
   <Import Project="..\CommonSettings.props" />
 

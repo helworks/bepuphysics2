@@ -1,6 +1,8 @@
 ﻿using BepuPhysics.Collidables;
 using BepuPhysics.Constraints;
 
+using helengine;
+
 namespace BepuPhysics.CollisionDetection
 {
     /// <summary>
@@ -45,7 +47,7 @@ namespace BepuPhysics.CollisionDetection
         /// Performs any required initialization logic after the Simulation instance has been constructed.
         /// </summary>
         /// <param name="simulation">Simulation that owns these callbacks.</param>
-        void Initialize(Simulation simulation);
+        void Initialize([NativeRetainsBorrow] Simulation simulation);
 
         /// <summary>
         /// Chooses whether to allow contact generation to proceed for two overlapping collidables.
